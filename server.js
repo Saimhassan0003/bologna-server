@@ -20,6 +20,11 @@ if (!fs.existsSync(uploadsDir)) {
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  if (req.body) console.log('Body:', req.body);
+  next();
+});
 app.use('/uploads', express.static(uploadsDir)); // Serve files publicly
 
 // Database Connection
@@ -28,9 +33,18 @@ mongoose.connect(process.env.DB_URI)
 .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
+console.log('Registering routes...');
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/options', optionRoutes);
+console.log('Routes registered');
+
+// Error handling middleware (must be last)
+app.use((err, req, res, next) => {
+  console.error('[ERROR]', err.message);
+  console.error(err.stack);
+  res.status(500).json({ message: 'Server error', error: err.message });
+});
 
 const PORT = process.env.PORT || 5000;
 
