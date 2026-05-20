@@ -17,7 +17,7 @@ const seedDB = async () => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash('password123', salt);
     const admin = new Admin({
-      email: [EMAIL_ADDRESS]',
+      email: 'admin@ibes.com',
       password: hashedPassword
     });
     await admin.save();
