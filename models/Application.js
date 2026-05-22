@@ -20,9 +20,10 @@ const applicationSchema = new mongoose.Schema({
   department: { type: String, required: true },
   programme: { type: String, required: true },
   intake: { type: String, required: true },
-  creditHours: { type: String, required: true },
-  price: { type: String, required: true },
+  creditHours: { type: String, default: '' },
+  price: { type: String, default: '' },
   registrationViaCentre: { type: String, default: 'No' }, // 'Yes' or 'No'
+  centreName: { type: String, default: '' },
   centreEmail: { type: String, default: '' },
   centrePhone: { type: String, default: '' },
   highestQualification: { type: String, required: true },

@@ -48,6 +48,7 @@ router.post('/', cpUpload, async (req, res) => {
       creditHours,
       price,
       registrationViaCentre,
+      centreName,
       centreEmail,
       centrePhone,
       highestQualification
@@ -89,6 +90,7 @@ router.post('/', cpUpload, async (req, res) => {
       creditHours,
       price,
       registrationViaCentre,
+      centreName: registrationViaCentre === 'Yes' ? centreName : '',
       centreEmail: registrationViaCentre === 'Yes' ? centreEmail : '',
       centrePhone: registrationViaCentre === 'Yes' ? centrePhone : '',
       highestQualification,

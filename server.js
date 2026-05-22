@@ -8,6 +8,7 @@ const fs = require('fs');
 const authRoutes = require('./routes/auth');
 const applicationRoutes = require('./routes/applications');
 const optionRoutes = require('./routes/options');
+const centreRoutes = require('./routes/centres');
 
 const app = express();
 
@@ -37,6 +38,7 @@ console.log('Registering routes...');
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/options', optionRoutes);
+app.use('/api/centres', centreRoutes);
 console.log('Routes registered');
 
 // Error handling middleware (must be last)

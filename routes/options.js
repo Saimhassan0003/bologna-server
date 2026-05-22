@@ -18,11 +18,11 @@ router.get('/', async (req, res) => {
           'Level 2 Diploma'
         ],
         programmes: [
-          { department: 'Level 5 Higher Diploma', programme: 'Executive Diploma in Marketing' },
-          { department: 'Level 5 Higher Diploma', programme: 'Executive Diploma in Marketing Management' },
-          { department: 'Level 4 Executive Diploma', programme: 'Executive Diploma in HRM' },
-          { department: 'Level 7 Post Graduate Diploma', programme: 'Executive Diploma in Human Capital Management' },
-          { department: 'Level 2 Diploma', programme: 'Executive Diploma in Supply Chain Management' }
+          { department: 'Level 5 Higher Diploma', programme: 'Executive Diploma in Marketing', creditHours: '120 ECTS', price: '3,000 EUR' },
+          { department: 'Level 5 Higher Diploma', programme: 'Executive Diploma in Marketing Management', creditHours: '120 ECTS', price: '3,000 EUR' },
+          { department: 'Level 4 Executive Diploma', programme: 'Executive Diploma in HRM', creditHours: '120 ECTS', price: '3,000 EUR' },
+          { department: 'Level 7 Post Graduate Diploma', programme: 'Executive Diploma in Human Capital Management', creditHours: '180 ECTS', price: '2,200 EUR' },
+          { department: 'Level 2 Diploma', programme: 'Executive Diploma in Supply Chain Management', creditHours: '60 ECTS', price: '1,000 EUR' }
         ],
         intakes: [
           { department: 'Level 5 Higher Diploma', programme: 'Executive Diploma in Marketing', intake: 'January 2026 - July 2026' },

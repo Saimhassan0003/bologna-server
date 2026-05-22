@@ -5,7 +5,9 @@ const academicOptionsSchema = new mongoose.Schema({
   programmes: {
     type: [{
       department: { type: String, required: true },
-      programme: { type: String, required: true }
+      programme: { type: String, required: true },
+      creditHours: { type: String, default: '' },
+      price: { type: String, default: '' }
     }],
     default: []
   },
