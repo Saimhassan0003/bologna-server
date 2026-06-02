@@ -19,7 +19,9 @@ const applicationSchema = new mongoose.Schema({
   // Academic Info
   department: { type: String, required: true },
   programme: { type: String, required: true },
-  intake: { type: String, required: true },
+  courseStartDate: { type: String, default: '' },
+  courseEndDate: { type: String, default: '' },
+  intake: { type: String, default: '' },
   creditHours: { type: String, default: '' },
   price: { type: String, default: '' },
   registrationViaCentre: { type: String, default: 'No' }, // 'Yes' or 'No'

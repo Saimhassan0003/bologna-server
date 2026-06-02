@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const Application = require('../models/Application');
 const authMiddleware = require('../middleware/authMiddleware');
+const emailService = require('../utils/emailService');
 
 // Multer Config
 const storage = multer.diskStorage({
@@ -44,6 +45,8 @@ router.post('/', cpUpload, async (req, res) => {
       address,
       department,
       programme,
+      courseStartDate,
+      courseEndDate,
       intake,
       creditHours,
       price,
@@ -86,6 +89,8 @@ router.post('/', cpUpload, async (req, res) => {
       address,
       department,
       programme,
+      courseStartDate,
+      courseEndDate,
       intake,
       creditHours,
       price,
@@ -103,6 +108,14 @@ router.post('/', cpUpload, async (req, res) => {
     });
 
     const savedApplication = await newApplication.save();
+
+    // Dispatch submission confirmation emails concurrently to user & admin
+    try {
+      await emailService.sendSubmissionEmails(savedApplication);
+    } catch (mailErr) {
+      console.error('[SMTP ERROR] Failed to send submission emails:', mailErr.message);
+    }
+
     res.status(201).json(savedApplication);
   } catch (err) {
     console.error(err.message);
@@ -136,8 +149,21 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Application not found' });
     }
 
+    const previousStatus = application.status;
     application.status = status;
     await application.save();
+
+    // Dispatch approval notifications simultaneously if transitioned to 'Accepted'
+    // and the student registered through an approved center.
+    if (status === 'Accepted' && previousStatus !== 'Accepted') {
+      if (application.registrationViaCentre === 'Yes' && application.centreEmail) {
+        try {
+          await emailService.sendApprovalEmails(application);
+        } catch (mailErr) {
+          console.error('[SMTP ERROR] Failed to send approval emails:', mailErr.message);
+        }
+      }
+    }
 
     res.json(application);
   } catch (err) {

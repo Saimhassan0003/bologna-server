@@ -8,28 +8,26 @@ const authMiddleware = require('../middleware/authMiddleware');
 router.get('/', async (req, res) => {
   try {
     let options = await AcademicOptions.findOne();
-    if (!options) {
-      // Default initial options matching the Google Form, with intakes fully linked
+    if (!options || !options.departments.includes('Bachelor') || !options.programmes.some(p => p.courseStartDate)) {
+      if (options) {
+        await AcademicOptions.deleteOne({ _id: options._id });
+      }
+      // Options matching the images
       options = new AcademicOptions({
         departments: [
-          'Level 5 Higher Diploma',
-          'Level 4 Executive Diploma',
-          'Level 7 Post Graduate Diploma',
-          'Level 2 Diploma'
+          'Bachelor',
+          'Master',
+          'Doctorate'
         ],
         programmes: [
-          { department: 'Level 5 Higher Diploma', programme: 'Executive Diploma in Marketing', creditHours: '120 ECTS', price: '3,000 EUR' },
-          { department: 'Level 5 Higher Diploma', programme: 'Executive Diploma in Marketing Management', creditHours: '120 ECTS', price: '3,000 EUR' },
-          { department: 'Level 4 Executive Diploma', programme: 'Executive Diploma in HRM', creditHours: '120 ECTS', price: '3,000 EUR' },
-          { department: 'Level 7 Post Graduate Diploma', programme: 'Executive Diploma in Human Capital Management', creditHours: '180 ECTS', price: '2,200 EUR' },
-          { department: 'Level 2 Diploma', programme: 'Executive Diploma in Supply Chain Management', creditHours: '60 ECTS', price: '1,000 EUR' }
+          { department: 'Bachelor', programme: 'Bachelor in Education', creditHours: '120 ECTS', price: '3,000 EUR', courseStartDate: '1 January 2027', courseEndDate: '1 July 2028' },
+          { department: 'Bachelor', programme: "Bachelor's degree in Event and Hospitality Management", creditHours: '180 ECTS', price: '3,000 EUR', courseStartDate: '1 July 2026', courseEndDate: '1 July 2027' },
+          { department: 'Master', programme: 'Master of continuing Education in Public Administration', creditHours: '90 ECTS', price: '4,000 EUR', courseStartDate: '1 July 2026', courseEndDate: '1 July 2027' }
         ],
         intakes: [
-          { department: 'Level 5 Higher Diploma', programme: 'Executive Diploma in Marketing', intake: 'January 2026 - July 2026' },
-          { department: 'Level 5 Higher Diploma', programme: 'Executive Diploma in Marketing Management', intake: 'February 2026 - August 2026' },
-          { department: 'Level 4 Executive Diploma', programme: 'Executive Diploma in HRM', intake: 'March 2026 - September 2026' },
-          { department: 'Level 7 Post Graduate Diploma', programme: 'Executive Diploma in Human Capital Management', intake: 'April 2026 - October 2026' },
-          { department: 'Level 2 Diploma', programme: 'Executive Diploma in Supply Chain Management', intake: 'May 2026 - November 2026' }
+          { department: 'Bachelor', programme: 'Bachelor in Education', intake: 'January 2026 - July 2026' },
+          { department: 'Bachelor', programme: "Bachelor's degree in Event and Hospitality Management", intake: 'February 2026 - August 2026' },
+          { department: 'Master', programme: 'Master of continuing Education in Public Administration', intake: 'March 2026 - September 2026' }
         ]
       });
       await options.save();
