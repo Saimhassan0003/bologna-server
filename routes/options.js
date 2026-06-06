@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const AcademicOptions = require('../models/AcademicOptions');
 const authMiddleware = require('../middleware/authMiddleware');
+const { logActivity } = require('../utils/logger');
 
 // Get all customizable academic options (Departments, Programmes, Intakes)
 // If empty, automatically seed with the initial default arrays
@@ -95,6 +96,12 @@ router.put('/', authMiddleware, async (req, res) => {
     if (intakes) options.intakes = intakes;
 
     await options.save();
+    await logActivity(
+      'Settings Updated',
+      'Academic options (Programmes, Courses, and Intakes) were updated',
+      'programme',
+      'Admin'
+    );
     res.json(options);
   } catch (err) {
     console.error(err.message);

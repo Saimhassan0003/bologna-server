@@ -26,6 +26,8 @@ const seedDB = async () => {
     // Seed Applications with full Academic + Personal details
     const applications = [
       {
+        firstName: 'Yael',
+        lastName: 'Kent',
         fullName: 'Yael Kent',
         certificateName: 'Xerxes Santiago',
         dob: new Date('1998-05-15'),
@@ -53,6 +55,8 @@ const seedDB = async () => {
         status: 'Pending'
       },
       {
+        firstName: 'Mario',
+        lastName: 'Rossi',
         fullName: 'Mario Rossi',
         certificateName: 'Mario Rossi Certificate',
         dob: new Date('1996-12-01'),

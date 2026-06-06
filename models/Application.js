@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 
 const applicationSchema = new mongoose.Schema({
   // Personal Info
+  firstName: { type: String },
+  lastName: { type: String },
   fullName: { type: String, required: true },
   certificateName: { type: String, required: true },
   dob: { type: Date, required: true },

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Centre = require('../models/Centre');
 const authMiddleware = require('../middleware/authMiddleware');
+const { logActivity } = require('../utils/logger');
 
 // GET all centres (protected)
 router.get('/', authMiddleware, async (req, res) => {
@@ -42,6 +43,12 @@ router.post('/', authMiddleware, async (req, res) => {
       phone: phone ? phone.trim() : ''
     });
     await centre.save();
+    await logActivity(
+      'Centre Created',
+      `Approved Centre "${centre.name}" was added to the portal`,
+      'centre',
+      'Admin'
+    );
     res.status(201).json(centre);
   } catch (err) {
     console.error(err.message);
@@ -59,6 +66,12 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (email) centre.email = email.trim();
     if (phone !== undefined) centre.phone = phone.trim();
     await centre.save();
+    await logActivity(
+      'Centre Updated',
+      `Approved Centre "${centre.name}" details were updated`,
+      'centre',
+      'Admin'
+    );
     res.json(centre);
   } catch (err) {
     console.error(err.message);
@@ -72,6 +85,12 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const centre = await Centre.findById(req.params.id);
     if (!centre) return res.status(404).json({ message: 'Centre not found' });
     await centre.deleteOne();
+    await logActivity(
+      'Centre Deleted',
+      `Approved Centre "${centre.name}" was removed`,
+      'centre',
+      'Admin'
+    );
     res.json({ message: 'Centre removed' });
   } catch (err) {
     console.error(err.message);

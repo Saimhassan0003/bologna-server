@@ -5,6 +5,7 @@ const path = require('path');
 const Application = require('../models/Application');
 const authMiddleware = require('../middleware/authMiddleware');
 const emailService = require('../utils/emailService');
+const { logActivity } = require('../utils/logger');
 
 // Multer Config
 const storage = multer.diskStorage({
@@ -34,6 +35,8 @@ const cpUpload = upload.fields([
 router.post('/', cpUpload, async (req, res) => {
   try {
     const { 
+      firstName,
+      lastName,
       fullName, 
       certificateName, 
       dob, 
@@ -77,8 +80,12 @@ router.post('/', cpUpload, async (req, res) => {
     const transcript2Path = req.files['transcript2'] ? `/uploads/${req.files['transcript2'][0].filename}` : '';
     const transcript3Path = req.files['transcript3'] ? `/uploads/${req.files['transcript3'][0].filename}` : '';
 
+    const computedFullName = fullName || `${firstName || ''} ${lastName || ''}`.trim();
+
     const newApplication = new Application({
-      fullName,
+      firstName,
+      lastName,
+      fullName: computedFullName,
       certificateName,
       dob,
       gender,
@@ -108,6 +115,13 @@ router.post('/', cpUpload, async (req, res) => {
     });
 
     const savedApplication = await newApplication.save();
+
+    await logActivity(
+      'Application Submitted',
+      `New application submitted by ${computedFullName} for the ${programme} program`,
+      'application',
+      'User'
+    );
 
     // Dispatch submission confirmation emails concurrently to user & admin
     try {
@@ -152,6 +166,13 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
     const previousStatus = application.status;
     application.status = status;
     await application.save();
+
+    await logActivity(
+      'Status Updated',
+      `Application status of ${application.fullName} was changed from "${previousStatus}" to "${status}"`,
+      'status',
+      'Admin'
+    );
 
     // Dispatch approval notifications simultaneously if transitioned to 'Accepted'
     // and the student registered through an approved center.
