@@ -65,7 +65,7 @@ const seedDB = async () => {
         phone: '+39 333 1234567',
         passportNumber: 'MR7654321',
         country: 'Italy',
-        address: 'Via dell\'Indipendenza, 12, Bologna',
+        address: 'Via dell\'Indipendenza, 12, UTAMED',
         department: 'Level 7 Post Graduate Diploma',
         programme: 'Executive Diploma in Marketing Management',
         intake: 'February 2026 - August 2026',

@@ -168,7 +168,7 @@ const getBaseTemplate = (title, contentHeader, contentBody) => `
   <div class="wrapper">
     <div class="container">
       <div class="header">
-        <h1>Bologna University</h1>
+        <h1>UTAMED University</h1>
         <p>Admissions & Enrollment Hub</p>
       </div>
       <div class="content">
@@ -176,9 +176,9 @@ const getBaseTemplate = (title, contentHeader, contentBody) => `
         ${contentBody}
       </div>
       <div class="footer">
-        <p>&copy; ${new Date().getFullYear()} Bologna University. All rights reserved.</p>
-        <p>Institute Bologna Academic Admissions Portal</p>
-        <p>Need support? Please email us at <a href="mailto:support@bologna.com">support@bologna.com</a></p>
+        <p>&copy; ${new Date().getFullYear()} UTAMED University. All rights reserved.</p>
+        <p>Institute UTAMED Academic Admissions Portal</p>
+        <p>Need support? Please email us at <a href="mailto:support@utamed.com">support@utamed.com</a></p>
       </div>
     </div>
   </div>
@@ -191,12 +191,12 @@ const getBaseTemplate = (title, contentHeader, contentBody) => `
  * Both emails send concurrently.
  */
 const sendSubmissionEmails = async (app) => {
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@bologna.com';
-  const mailerUser = process.env.EMAIL_USER || 'mailer@bologna.com';
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
+  const mailerUser = process.env.EMAIL_USER || 'mailer@utamed.com';
 
   // Email to USER
   const userHtml = getBaseTemplate(
-    'Application Submitted — Bologna University',
+    'Application Submitted — UTAMED University',
     'Application Received Successfully',
     `
     <p>Dear <strong>${app.fullName}</strong>,</p>
@@ -234,7 +234,7 @@ const sendSubmissionEmails = async (app) => {
 
   // Email to ADMIN
   const adminHtml = getBaseTemplate(
-    'New Application Received — Bologna University',
+    'New Application Received — UTAMED University',
     'New Directory Submission Alert',
     `
     <p>Hello Admin,</p>
@@ -333,16 +333,16 @@ const sendSubmissionEmails = async (app) => {
   );
 
   const userMailOptions = {
-    from: `"Bologna University System" <${mailerUser}>`,
+    from: `"UTAMED University System" <${mailerUser}>`,
     to: app.email,
-    subject: 'Application Submitted — Bologna University',
+    subject: 'Application Submitted — UTAMED University',
     html: userHtml
   };
 
   const adminMailOptions = {
-    from: `"Bologna University Notifications" <${mailerUser}>`,
+    from: `"UTAMED University Notifications" <${mailerUser}>`,
     to: adminEmail,
-    subject: 'New Application Received — Bologna University',
+    subject: 'New Application Received — UTAMED University',
     html: adminHtml
   };
 
@@ -368,12 +368,12 @@ const sendSubmissionEmails = async (app) => {
  * All 3 emails send concurrently.
  */
 const sendApprovalEmails = async (app) => {
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@bologna.com';
-  const mailerUser = process.env.EMAIL_USER || 'mailer@bologna.com';
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
+  const mailerUser = process.env.EMAIL_USER || 'mailer@utamed.com';
 
   // Email to USER
   const userHtml = getBaseTemplate(
-    'Application Approved — Bologna University',
+    'Application Approved — UTAMED University',
     'Congratulations! Your Application is Approved',
     `
     <p>Dear <strong>${app.fullName}</strong>,</p>
@@ -401,13 +401,13 @@ const sendApprovalEmails = async (app) => {
     </div>
     
     <p>A representative from the assigned center will contact you shortly with the enrollment schedule, orientation details, and fee payment instructions. You may also contact them directly using the credentials listed above.</p>
-    <p>Welcome to Bologna University. We wish you an exceptional academic journey!</p>
+    <p>Welcome to UTAMED University. We wish you an exceptional academic journey!</p>
     `
   );
 
   // Email to ADMIN
   const adminHtml = getBaseTemplate(
-    'Application Approved — Bologna University',
+    'Application Approved — UTAMED University',
     'Application Approved & Assigned successfully',
     `
     <p>Hello Admin,</p>
@@ -442,7 +442,7 @@ const sendApprovalEmails = async (app) => {
 
   // Email to APPROVED CENTER
   const centerHtml = getBaseTemplate(
-    'New Application Assigned — Bologna University',
+    'New Application Assigned — UTAMED University',
     'New Approved Student Profile Assigned',
     `
     <p>Dear Center Coordinator at <strong>${app.centreName}</strong>,</p>
@@ -488,28 +488,28 @@ const sendApprovalEmails = async (app) => {
     </div>
     
     <p><strong>Action Required:</strong> Please reach out to <strong>${app.fullName}</strong> at your earliest convenience to complete their enrollment files, verify documentation, and process course registrations.</p>
-    <p>Thank you for your continued partnership with Bologna University.</p>
+    <p>Thank you for your continued partnership with UTAMED University.</p>
     `
   );
 
   const userMailOptions = {
-    from: `"Bologna University Registrar" <${mailerUser}>`,
+    from: `"UTAMED University Registrar" <${mailerUser}>`,
     to: app.email,
-    subject: 'Application Approved — Bologna University',
+    subject: 'Application Approved — UTAMED University',
     html: userHtml
   };
 
   const adminMailOptions = {
-    from: `"Bologna University System" <${mailerUser}>`,
+    from: `"UTAMED University System" <${mailerUser}>`,
     to: adminEmail,
-    subject: 'Application Approved — Bologna University',
+    subject: 'Application Approved — UTAMED University',
     html: adminHtml
   };
 
   const centerMailOptions = {
-    from: `"Bologna University Center Services" <${mailerUser}>`,
+    from: `"UTAMED University Center Services" <${mailerUser}>`,
     to: app.centreEmail,
-    subject: 'New Application Assigned — Bologna University',
+    subject: 'New Application Assigned — UTAMED University',
     html: centerHtml
   };
 

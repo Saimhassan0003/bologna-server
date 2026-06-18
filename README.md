@@ -1,6 +1,6 @@
-# University of Bologna Admission Portal
+# University of UTAMED Admission Portal
 
-A full-stack web application for the University of Bologna's admission portal. It includes a public landing page and a secure admin dashboard to manage applications.
+A full-stack web application for the University of UTAMED's admission portal. It includes a public landing page and a secure admin dashboard to manage applications.
 
 ## Tech Stack
 
@@ -18,7 +18,7 @@ A full-stack web application for the University of Bologna's admission portal. I
 1.  **Clone the repository:**
     ```bash
     git clone <repository_url>
-    cd Bologna
+    cd UTAMED
     ```
 
 2.  **Backend Setup:**
@@ -29,8 +29,8 @@ A full-stack web application for the University of Bologna's admission portal. I
     *Ensure your `.env` file in the `server` directory has the correct MongoDB URI:*
     ```env
     PORT=5000
-    DB_URI=mongodb://127.0.0.1:27017/bologna_admissions
-    JWT_SECRET=supersecret_bologna_key_2026
+    DB_URI=mongodb://127.0.0.1:27017/utamed_admissions
+    JWT_SECRET=supersecret_utamed_key_2026
     ```
     *Seed the database with default admin credentials and mock applications:*
     ```bash
