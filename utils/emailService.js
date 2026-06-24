@@ -1,11 +1,11 @@
 const nodemailer = require('nodemailer');
 
-// Initialize the SMTP Transporter
-// Gmail SMTP uses port 587 with TLS (secure: false, requireTLS: true)
-const transporter = nodemailer.createTransport({
+// SMTP Transporter factory — credentials read at send-time so dotenv is always loaded first
+const getTransporter = () => nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
   secure: false, // Use STARTTLS
+  requireTLS: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
@@ -191,15 +191,28 @@ const getBaseTemplate = (title, contentHeader, contentBody) => `
  * Both emails send concurrently.
  */
 const sendSubmissionEmails = async (app) => {
+  console.log(`[SMTP] sendSubmissionEmails called for application ID: ${app._id}`);
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
   const mailerUser = process.env.EMAIL_USER || 'mailer@utamed.com';
+
+  // Check if this is a pending documents application or a complete submission
+  const isPendingDocuments = app.status === 'PendingDocuments';
 
   // Email to USER
   const userHtml = getBaseTemplate(
     'Application Submitted — UTAMED University',
-    'Application Received Successfully',
+    isPendingDocuments ? 'Application Received — Documents Required' : 'Application Received Successfully',
     `
     <p>Dear <strong>${app.fullName}</strong>,</p>
+      ${isPendingDocuments ? `
+      <p>⏰ IMPORTANT: Your application is incomplete. Missing documents detected.</p>
+      <p>Your documents are currently pending. Please note that you have exactly <strong>2 months</strong> from the date of submission to upload your required documents.</p>
+      <p>Missing: ${app.missingDocuments?.join(', ') || 'Documents'}</p>
+      <p><strong style="color: #d32f2f;">Upload Deadline: ${new Date(app.documentDeadline).toLocaleString()}</strong></p>
+      <div class="button-container">
+        <a href="https://bologna-client.vercel.app/upload-documents/${app._id}" class="btn">Upload Documents Now</a>
+      </div>
+      ` : ''}
     <p>Thank you for submitting your application to the <strong>${app.programme}</strong> program within the <strong>${app.department}</strong> department.</p>
     <p>We are pleased to inform you that your application has been successfully submitted and is currently <strong>under review</strong> by our Registry Office evaluation committee.</p>
     <div class="divider"></div>
@@ -332,24 +345,37 @@ const sendSubmissionEmails = async (app) => {
     `
   );
 
+  const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+
   const userMailOptions = {
-    from: `"UTAMED University System" <${mailerUser}>`,
+    from: `"Bologna Admissions" <${mailerUser}>`,
     to: app.email,
-    subject: 'Application Submitted — UTAMED University',
-    html: userHtml
+    subject: 'Application Submitted - UTAMED University',
+    html: userHtml,
+    text: stripHtml(userHtml),
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'Bologna Application System'
+    }
   };
 
   const adminMailOptions = {
-    from: `"UTAMED University Notifications" <${mailerUser}>`,
+    from: `"Bologna Admissions" <${mailerUser}>`,
     to: adminEmail,
-    subject: 'New Application Received — UTAMED University',
-    html: adminHtml
+    subject: 'New Application Received - UTAMED University',
+    html: adminHtml,
+    text: stripHtml(adminHtml),
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'Bologna Application System'
+    }
   };
 
   // Perform simultaneous email transmission
   console.log(`[SMTP] Sending submission emails concurrently to user (${app.email}) and admin (${adminEmail})...`);
   
   // Wrap sending in a try/catch. Use Promise.all to send simultaneously.
+  const transporter = getTransporter();
   try {
     await Promise.all([
       transporter.sendMail(userMailOptions),
@@ -492,30 +518,48 @@ const sendApprovalEmails = async (app) => {
     `
   );
 
+  const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+
   const userMailOptions = {
-    from: `"UTAMED University Registrar" <${mailerUser}>`,
+    from: `"Bologna Admissions" <${mailerUser}>`,
     to: app.email,
-    subject: 'Application Approved — UTAMED University',
-    html: userHtml
+    subject: 'Application Approved - UTAMED University',
+    html: userHtml,
+    text: stripHtml(userHtml),
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'Bologna Application System'
+    }
   };
 
   const adminMailOptions = {
-    from: `"UTAMED University System" <${mailerUser}>`,
+    from: `"Bologna Admissions" <${mailerUser}>`,
     to: adminEmail,
-    subject: 'Application Approved — UTAMED University',
-    html: adminHtml
+    subject: 'Application Approved - UTAMED University',
+    html: adminHtml,
+    text: stripHtml(adminHtml),
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'Bologna Application System'
+    }
   };
 
   const centerMailOptions = {
-    from: `"UTAMED University Center Services" <${mailerUser}>`,
+    from: `"Bologna Admissions" <${mailerUser}>`,
     to: app.centreEmail,
-    subject: 'New Application Assigned — UTAMED University',
-    html: centerHtml
+    subject: 'New Application Assigned - UTAMED University',
+    html: centerHtml,
+    text: stripHtml(centerHtml),
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'Bologna Application System'
+    }
   };
 
   // Perform simultaneous email transmissions for all 3 stakeholders
   console.log(`[SMTP] Sending approval emails concurrently to User (${app.email}), Admin (${adminEmail}), and Centre (${app.centreEmail})...`);
   
+  const transporter = getTransporter();
   try {
     await Promise.all([
       transporter.sendMail(userMailOptions),
@@ -530,7 +574,120 @@ const sendApprovalEmails = async (app) => {
   }
 };
 
+/**
+ * Notify student when application deadline expires
+ */
+const notifyStudentApplicationExpired = async (app) => {
+  const missingDocsStr = app.missingDocuments?.length > 0 
+    ? app.missingDocuments.map(d => `• ${d}`).join('\n')
+    : 'Unknown';
+
+  const html = getBaseTemplate(
+    'Application Document Submission Expired',
+    'Document Submission Period Expired',
+    `
+    <p>Dear ${app.fullName},</p>
+    <p style="color: #d32f2f; font-weight: 600;">Your 5-minute document submission period has expired.</p>
+    <p>You submitted your application but the following documents were not uploaded within the required timeframe:</p>
+    <pre style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; overflow-x: auto;">
+${missingDocsStr}
+    </pre>
+    <p><strong>Application Status:</strong> <span style="color: #d32f2f;">Rejected</span></p>
+    <p>If you believe this is a mistake or need assistance, please contact our admissions office.</p>
+    <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
+      <p style="margin: 0; font-weight: 600; color: #856404;">Need Help?</p>
+      <p style="margin: 8px 0 0 0; color: #856404;">Please contact: admissions@institution.com</p>
+    </div>
+    `
+  );
+
+  const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+
+  const mailOptions = {
+    from: `"Bologna Admissions" <${process.env.EMAIL_USER}>`,
+    to: app.email,
+    subject: 'Application Document Submission Period Expired',
+    html,
+    text: stripHtml(html),
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'Bologna Application System'
+    }
+  };
+
+  const transporter = getTransporter();
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`[SMTP] Student expiration email sent to ${app.email}`);
+  } catch (err) {
+    console.error('[SMTP ERROR] Failed to send student expiration email:', err.message);
+    throw err;
+  }
+};
+
+/**
+ * Notify admin when application deadline expires
+ */
+const notifyAdminApplicationExpired = async (app) => {
+  const missingDocsStr = app.missingDocuments?.length > 0 
+    ? app.missingDocuments.map(d => `• ${d}`).join('\n')
+    : 'Unknown';
+
+  const html = getBaseTemplate(
+    'Application Document Submission Expired',
+    'Application Deadline Expired - Admin Notification',
+    `
+    <p>An application has expired due to incomplete document submission.</p>
+    <p><strong>Applicant:</strong> ${app.fullName}</p>
+    <p><strong>Email:</strong> ${app.email}</p>
+    <p><strong>Programme:</strong> ${app.programme}</p>
+    <p><strong>Status:</strong> <span style="color: #d32f2f;">Rejected (Expired)</span></p>
+    <p><strong>Missing Documents:</strong></p>
+    <pre style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; overflow-x: auto;">
+${missingDocsStr}
+    </pre>
+    <p><strong>Expiration Time:</strong> ${app.expiredAt?.toLocaleString() || 'N/A'}</p>
+    `
+  );
+
+  const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+
+  const mailOptions = {
+    from: `"Bologna Admissions" <${process.env.EMAIL_USER}>`,
+    to: 'saimhassantariq0003@gmail.com',
+    subject: 'Application Deadline Expired - ' + app.fullName,
+    html,
+    text: stripHtml(html),
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'Bologna Application System'
+    }
+  };
+
+  const transporter = getTransporter();
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('[SMTP] Admin expiration email sent');
+  } catch (err) {
+    console.error('[SMTP ERROR] Failed to send admin expiration email:', err.message);
+    throw err;
+  }
+};
+
+const verifySMTPConnection = async () => {
+  const transporter = getTransporter();
+  try {
+    await transporter.verify();
+    console.log('[SMTP] Connection verified successfully. Ready to send emails.');
+  } catch (err) {
+    console.error('[SMTP ERROR] Failed to verify SMTP connection details:', err);
+  }
+};
+
 module.exports = {
   sendSubmissionEmails,
-  sendApprovalEmails
+  sendApprovalEmails,
+  notifyStudentApplicationExpired,
+  notifyAdminApplicationExpired,
+  verifySMTPConnection
 };

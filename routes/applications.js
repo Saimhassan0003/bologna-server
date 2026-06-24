@@ -6,6 +6,7 @@ const Application = require('../models/Application');
 const authMiddleware = require('../middleware/authMiddleware');
 const emailService = require('../utils/emailService');
 const { logActivity } = require('../utils/logger');
+const crypto = require('crypto');
 
 // Multer Config
 const storage = multer.diskStorage({
@@ -60,27 +61,40 @@ router.post('/', cpUpload, async (req, res) => {
       highestQualification
     } = req.body;
 
-    // Check if required files were uploaded
-    if (!req.files || 
-        !req.files['profilePicture'] || 
-        !req.files['passportCopy'] || 
-        !req.files['resume'] || 
-        !req.files['transcript1']) {
-      return res.status(400).json({ 
-        message: 'Required files (Profile Picture, ID/Passport, Resume/CV, and Certified Transcript 1) are missing.' 
-      });
-    }
+    // Check which documents are provided
+    const profilePicturePath = req.files?.['profilePicture'] ? `/uploads/${req.files['profilePicture'][0].filename}` : '';
+    const passportCopyPath = req.files?.['passportCopy'] ? `/uploads/${req.files['passportCopy'][0].filename}` : '';
+    const resumePath = req.files?.['resume'] ? `/uploads/${req.files['resume'][0].filename}` : '';
+    const transcript1Path = req.files?.['transcript1'] ? `/uploads/${req.files['transcript1'][0].filename}` : '';
+    const transcript2Path = req.files?.['transcript2'] ? `/uploads/${req.files['transcript2'][0].filename}` : '';
+    const transcript3Path = req.files?.['transcript3'] ? `/uploads/${req.files['transcript3'][0].filename}` : '';
 
-    const profilePicturePath = `/uploads/${req.files['profilePicture'][0].filename}`;
-    const passportCopyPath = `/uploads/${req.files['passportCopy'][0].filename}`;
-    const resumePath = `/uploads/${req.files['resume'][0].filename}`;
-    const transcript1Path = `/uploads/${req.files['transcript1'][0].filename}`;
-    
-    // Optional Transcripts
-    const transcript2Path = req.files['transcript2'] ? `/uploads/${req.files['transcript2'][0].filename}` : '';
-    const transcript3Path = req.files['transcript3'] ? `/uploads/${req.files['transcript3'][0].filename}` : '';
+    // Track which documents are missing (all 6 need to be uploaded)
+    const missingDocuments = [];
+    if (!profilePicturePath) missingDocuments.push('profilePicture');
+    if (!passportCopyPath) missingDocuments.push('passportCopy');
+    if (!resumePath) missingDocuments.push('resume');
+    if (!transcript1Path) missingDocuments.push('transcript1');
+    if (!transcript2Path) missingDocuments.push('transcript2');
+    if (!transcript3Path) missingDocuments.push('transcript3');
 
     const computedFullName = fullName || `${firstName || ''} ${lastName || ''}`.trim();
+
+    // Determine status and deadline (2 months when documents missing)
+    let status = 'Submitted'; // All documents uploaded
+    let documentDeadline = null;
+    const submissionDate = new Date();
+
+    if (missingDocuments.length > 0) {
+      status = 'PendingDocuments';
+      const dd = new Date(submissionDate);
+      dd.setMonth(dd.getMonth() + 2); // 2 months from submission
+      documentDeadline = dd;
+    }
+
+    // Generate reference number and unique token for user portal/status link
+    const referenceNumber = `REF-${submissionDate.getTime().toString(36).toUpperCase()}`;
+    const uniqueToken = crypto.randomBytes(12).toString('hex');
 
     const newApplication = new Application({
       firstName,
@@ -111,17 +125,35 @@ router.post('/', cpUpload, async (req, res) => {
       resume: resumePath,
       transcript1: transcript1Path,
       transcript2: transcript2Path,
-      transcript3: transcript3Path
+      transcript3: transcript3Path,
+      status,
+      documentDeadline,
+      missingDocuments,
+      referenceNumber,
+      uniqueToken,
+      submissionDate
     });
 
     const savedApplication = await newApplication.save();
+    console.log(`[MongoDB] Successfully saved application for ${computedFullName} with ID ${savedApplication._id}`);
 
+    const actionMsg = status === 'Submitted' 
+      ? 'submitted with all documents' 
+      : `submitted with pending documents (${missingDocuments.length} missing)`;
+    
     await logActivity(
       'Application Submitted',
-      `New application submitted by ${computedFullName} for the ${programme} program`,
+      `New application ${actionMsg} by ${computedFullName} for the ${programme} program`,
       'application',
       'User'
     );
+
+    // If all documents were included, mark documentSubmittedAt/docsUploadedAt
+    if (missingDocuments.length === 0) {
+      savedApplication.documentSubmittedAt = submissionDate;
+      savedApplication.docsUploadedAt = submissionDate;
+      await savedApplication.save();
+    }
 
     // Dispatch submission confirmation emails concurrently to user & admin
     try {
@@ -130,7 +162,12 @@ router.post('/', cpUpload, async (req, res) => {
       console.error('[SMTP ERROR] Failed to send submission emails:', mailErr.message);
     }
 
-    res.status(201).json(savedApplication);
+    res.status(201).json({
+      ...savedApplication.toObject(),
+      message: status === 'Submitted' 
+        ? 'Application submitted successfully!' 
+        : `Application submitted. Please upload ${missingDocuments.length} remaining document(s) within 5 minutes.`
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
@@ -148,11 +185,32 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+// Get a single application by ID (public, for document upload view)
+router.get('/:id', async (req, res) => {
+  try {
+    const application = await Application.findById(req.params.id);
+    if (!application) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+    // Only return fields necessary for the document upload view
+    res.json({
+      _id: application._id,
+      status: application.status,
+      submissionDate: application.submissionDate,
+      documentDeadline: application.documentDeadline,
+      missingDocuments: application.missingDocuments
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
 // Update application status
 router.patch('/:id/status', authMiddleware, async (req, res) => {
   const { status } = req.body;
   
-  if (!['Pending', 'Reviewed', 'Accepted', 'Rejected'].includes(status)) {
+  if (!['Submitted', 'PendingDocuments', 'Reviewed', 'Accepted', 'Rejected'].includes(status)) {
     return res.status(400).json({ message: 'Invalid status value' });
   }
 
@@ -190,6 +248,70 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
+  }
+});
+
+// Upload or attach documents to an existing application (public)
+router.post('/:id/documents', cpUpload, async (req, res) => {
+  try {
+    const application = await Application.findById(req.params.id);
+    if (!application) return res.status(404).json({ message: 'Application not found' });
+
+    // If there is a deadline and it has passed, reject
+    if (application.documentDeadline && application.documentDeadline < new Date()) {
+      return res.status(400).json({ message: 'Document upload deadline has expired.' });
+    }
+
+    // Map uploaded files to application fields
+    const fileMap = req.files || {};
+    if (fileMap['profilePicture']) application.profilePicture = `/uploads/${fileMap['profilePicture'][0].filename}`;
+    if (fileMap['passportCopy']) application.passportCopy = `/uploads/${fileMap['passportCopy'][0].filename}`;
+    if (fileMap['resume']) application.resume = `/uploads/${fileMap['resume'][0].filename}`;
+    if (fileMap['transcript1']) application.transcript1 = `/uploads/${fileMap['transcript1'][0].filename}`;
+    if (fileMap['transcript2']) application.transcript2 = `/uploads/${fileMap['transcript2'][0].filename}`;
+    if (fileMap['transcript3']) application.transcript3 = `/uploads/${fileMap['transcript3'][0].filename}`;
+
+    // Recompute missingDocuments
+    const missing = [];
+    if (!application.profilePicture) missing.push('profilePicture');
+    if (!application.passportCopy) missing.push('passportCopy');
+    if (!application.resume) missing.push('resume');
+    if (!application.transcript1) missing.push('transcript1');
+    if (!application.transcript2) missing.push('transcript2');
+    if (!application.transcript3) missing.push('transcript3');
+
+    application.missingDocuments = missing;
+
+    if (missing.length === 0) {
+      application.status = 'Submitted';
+      application.documentDeadline = null;
+      application.documentSubmittedAt = new Date();
+      application.docsUploadedAt = new Date();
+    } else {
+      application.status = 'PendingDocuments';
+      // keep existing deadline if present, otherwise set one to 2 months from submission
+      if (!application.documentDeadline) {
+        const d = new Date(application.submissionDate || Date.now());
+        d.setMonth(d.getMonth() + 2);
+        application.documentDeadline = d;
+      }
+    }
+
+    const updated = await application.save();
+
+    await logActivity('Documents Uploaded', `Documents uploaded for application ${updated._id} by ${updated.fullName}`, 'application', 'User');
+
+    // Notify via email about updated submission state
+    try {
+      await emailService.sendSubmissionEmails(updated);
+    } catch (mailErr) {
+      console.error('[SMTP ERROR] Failed to send document-update emails:', mailErr.message);
+    }
+
+    res.json({ application: updated, message: missing.length === 0 ? 'All documents uploaded. Application complete.' : `Documents attached. ${missing.length} document(s) still pending.` });
+  } catch (err) {
+    console.error('Attach documents error', err.message);
+    res.status(500).json({ message: 'Server error while attaching documents' });
   }
 });
 

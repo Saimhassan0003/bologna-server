@@ -1,12 +1,35 @@
 require('dotenv').config();
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (e) {
+  console.warn('Could not set custom DNS servers:', e.message);
+}
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const Admin = require('./models/Admin');
 const Application = require('./models/Application');
 
+const customLookup = (hostname, options, callback) => {
+  if (typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
+  dns.resolve4(hostname, (err, addresses) => {
+    if (err) {
+      return dns.lookup(hostname, options, callback);
+    }
+    if (addresses && addresses.length > 0) {
+      return callback(null, addresses[0], 4);
+    }
+    dns.lookup(hostname, options, callback);
+  });
+};
+
 const seedDB = async () => {
   try {
-    await mongoose.connect(process.env.DB_URI);
+    await mongoose.connect(process.env.DB_URI, { lookup: customLookup });
     console.log('Connected to MongoDB for seeding...');
 
     // Clear existing data
@@ -17,11 +40,11 @@ const seedDB = async () => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash('password123', salt);
     const admin = new Admin({
-      email: 'admin@ibes.com',
+      email: 'admin@UTAMED.com',
       password: hashedPassword
     });
     await admin.save();
-    console.log('Admin seeded (admin@ibes.com / password123)');
+    console.log('Admin seeded (admin@UTAMED.com / password123)');
 
     // Seed Applications with full Academic + Personal details
     const applications = [

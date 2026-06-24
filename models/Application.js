@@ -13,6 +13,8 @@ const applicationSchema = new mongoose.Schema({
     required: true 
   },
   email: { type: String, required: true },
+  referenceNumber: { type: String, unique: true, index: true },
+  uniqueToken: { type: String, unique: true, index: true },
   phone: { type: String, required: true },
   passportNumber: { type: String, required: true },
   country: { type: String, required: true },
@@ -33,19 +35,36 @@ const applicationSchema = new mongoose.Schema({
   highestQualification: { type: String, required: true },
 
   // Files
-  profilePicture: { type: String, required: true },
-  passportCopy: { type: String, required: true },
-  resume: { type: String, required: true },
-  transcript1: { type: String, required: true },
+  profilePicture: { type: String, default: '' }, // Optional
+  passportCopy: { type: String, default: '' }, // Optional
+  resume: { type: String, default: '' }, // Optional
+  transcript1: { type: String, default: '' }, // Optional
   transcript2: { type: String, default: '' }, // Optional
   transcript3: { type: String, default: '' }, // Optional
 
+  // Document tracking
+  missingDocuments: {
+    type: [String], // ['profilePicture', 'resume', etc]
+    default: []
+  },
+
   submissionDate: { type: Date, default: Date.now },
+  documentDeadline: { type: Date, default: null }, // 5-minute deadline for pending documents
+  documentSubmittedAt: { type: Date, default: null }, // When all docs completed
+  docsUploadedAt: { type: Date, default: null },
+  
   status: {
     type: String,
-    enum: ['Pending', 'Reviewed', 'Accepted', 'Rejected'],
-    default: 'Pending'
-  }
+    enum: ['Submitted', 'PendingDocuments', 'Reviewed', 'Accepted', 'Rejected'],
+    default: 'Submitted'
+  },
+
+  // Expiry tracking
+  expiryEmailSent: { type: Boolean, default: false },
+  expiredAt: { type: Date, default: null }
 });
+
+// Ensure a unique index on email to prevent duplicate submissions
+applicationSchema.index({ email: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Application', applicationSchema);
