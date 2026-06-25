@@ -786,28 +786,26 @@ const sendDocumentUploadConfirmationEmails = async (app) => {
   const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
 
   const userMailOptions = {
-    from: '"UTAMED Admissions" <' + mailerUser + '>',
+    from: `"Bologna Admissions" <${mailerUser}>`,
     to: app.email,
-    subject: 'Documents Uploaded Successfully – UTAMED Admissions',
+    subject: 'Documents Uploaded Successfully - UTAMED Admissions',
     html: userHtml,
     text: stripHtml(userHtml),
-    replyTo: 'support@utamed.com',
     headers: {
       'X-Priority': '3',
-      'X-Mailer': 'UTAMED Admissions Portal'
+      'X-Mailer': 'Bologna Application System'
     }
   };
 
   const adminMailOptions = {
-    from: '"UTAMED Admissions" <' + mailerUser + '>',
+    from: `"Bologna Admissions" <${mailerUser}>`,
     to: adminEmail,
-    subject: 'Updated Documents Received – UTAMED Admissions',
+    subject: 'Updated Documents Received - UTAMED Admissions',
     html: adminHtml,
     text: stripHtml(adminHtml),
-    replyTo: 'support@utamed.com',
     headers: {
       'X-Priority': '3',
-      'X-Mailer': 'UTAMED Admissions Portal'
+      'X-Mailer': 'Bologna Application System'
     }
   };
 
