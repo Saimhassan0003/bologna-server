@@ -1,5 +1,7 @@
-const nodemailer = require('nodemailer');
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
 
+const nodemailer = require('nodemailer');
 // SMTP Transporter factory — credentials read at send-time so dotenv is always loaded first
 const getTransporter = () => nodemailer.createTransport({
   host: 'smtp.gmail.com',
