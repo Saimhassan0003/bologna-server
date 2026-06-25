@@ -52,6 +52,7 @@ const applicationSchema = new mongoose.Schema({
   documentDeadline: { type: Date, default: null }, // 5-minute deadline for pending documents
   documentSubmittedAt: { type: Date, default: null }, // When all docs completed
   docsUploadedAt: { type: Date, default: null },
+  uploadLink: { type: String, default: '' },
   
   status: {
     type: String,

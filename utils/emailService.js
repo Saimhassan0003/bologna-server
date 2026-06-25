@@ -210,7 +210,7 @@ const sendSubmissionEmails = async (app) => {
       <p>Missing: ${app.missingDocuments?.join(', ') || 'Documents'}</p>
       <p><strong style="color: #d32f2f;">Upload Deadline: ${new Date(app.documentDeadline).toLocaleString()}</strong></p>
       <div class="button-container">
-        <a href="https://bologna-client.vercel.app/upload-documents/${app._id}" class="btn">Upload Documents Now</a>
+        <a href="${app.uploadLink}" class="btn">Upload Documents Now</a>
       </div>
       ` : ''}
     <p>Thank you for submitting your application to the <strong>${app.programme}</strong> program within the <strong>${app.department}</strong> department.</p>
@@ -253,6 +253,8 @@ const sendSubmissionEmails = async (app) => {
     <p>Hello Admin,</p>
     <p>A new student application has been submitted to the directory. Please review the submitted details below:</p>
     <div class="divider"></div>
+    <h3 style="color: #0f172a; margin-bottom: 12px; font-size: 16px;">Action Required</h3>
+    <p><strong>Document Upload Link:</strong> <a href="${app.uploadLink}">${app.uploadLink}</a></p>
     <h3 style="color: #0f172a; margin-bottom: 12px; font-size: 16px;">Personal Information</h3>
     <div class="table-container">
       <table class="detail-table">
@@ -348,26 +350,28 @@ const sendSubmissionEmails = async (app) => {
   const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
 
   const userMailOptions = {
-    from: `"Bologna Admissions" <${mailerUser}>`,
+    from: '"UTAMED Admissions" <' + mailerUser + '>',
     to: app.email,
-    subject: 'Application Submitted - UTAMED University',
+    subject: isPendingDocuments ? 'Action Required: Upload Your Documents – UTAMED Admissions' : 'Application Submitted – UTAMED Admissions',
     html: userHtml,
     text: stripHtml(userHtml),
+    replyTo: 'support@utamed.com',
     headers: {
       'X-Priority': '3',
-      'X-Mailer': 'Bologna Application System'
+      'X-Mailer': 'UTAMED Admissions Portal'
     }
   };
 
   const adminMailOptions = {
-    from: `"Bologna Admissions" <${mailerUser}>`,
+    from: '"UTAMED Admissions" <' + mailerUser + '>',
     to: adminEmail,
-    subject: 'New Application Received - UTAMED University',
+    subject: 'New Application Received – UTAMED Admissions',
     html: adminHtml,
     text: stripHtml(adminHtml),
+    replyTo: 'support@utamed.com',
     headers: {
       'X-Priority': '3',
-      'X-Mailer': 'Bologna Application System'
+      'X-Mailer': 'UTAMED Admissions Portal'
     }
   };
 
@@ -521,38 +525,41 @@ const sendApprovalEmails = async (app) => {
   const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
 
   const userMailOptions = {
-    from: `"Bologna Admissions" <${mailerUser}>`,
+    from: '"UTAMED Admissions" <' + mailerUser + '>',
     to: app.email,
-    subject: 'Application Approved - UTAMED University',
+    subject: 'Application Approved – UTAMED Admissions',
     html: userHtml,
     text: stripHtml(userHtml),
+    replyTo: 'support@utamed.com',
     headers: {
       'X-Priority': '3',
-      'X-Mailer': 'Bologna Application System'
+      'X-Mailer': 'UTAMED Admissions Portal'
     }
   };
 
   const adminMailOptions = {
-    from: `"Bologna Admissions" <${mailerUser}>`,
+    from: '"UTAMED Admissions" <' + mailerUser + '>',
     to: adminEmail,
-    subject: 'Application Approved - UTAMED University',
+    subject: 'Application Approved – UTAMED Admissions',
     html: adminHtml,
     text: stripHtml(adminHtml),
+    replyTo: 'support@utamed.com',
     headers: {
       'X-Priority': '3',
-      'X-Mailer': 'Bologna Application System'
+      'X-Mailer': 'UTAMED Admissions Portal'
     }
   };
 
   const centerMailOptions = {
-    from: `"Bologna Admissions" <${mailerUser}>`,
+    from: '"UTAMED Admissions" <' + mailerUser + '>',
     to: app.centreEmail,
-    subject: 'New Application Assigned - UTAMED University',
+    subject: 'New Application Assigned – UTAMED Admissions',
     html: centerHtml,
     text: stripHtml(centerHtml),
+    replyTo: 'support@utamed.com',
     headers: {
       'X-Priority': '3',
-      'X-Mailer': 'Bologna Application System'
+      'X-Mailer': 'UTAMED Admissions Portal'
     }
   };
 
@@ -604,14 +611,15 @@ ${missingDocsStr}
   const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
 
   const mailOptions = {
-    from: `"Bologna Admissions" <${process.env.EMAIL_USER}>`,
+    from: '"UTAMED Admissions" <' + process.env.EMAIL_USER + '>',
     to: app.email,
-    subject: 'Application Document Submission Period Expired',
+    subject: 'Action Required: Document Submission Period Expired – UTAMED Application',
     html,
     text: stripHtml(html),
+    replyTo: 'support@utamed.com',
     headers: {
       'X-Priority': '3',
-      'X-Mailer': 'Bologna Application System'
+      'X-Mailer': 'UTAMED Application Portal'
     }
   };
 
@@ -653,14 +661,15 @@ ${missingDocsStr}
   const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
 
   const mailOptions = {
-    from: `"Bologna Admissions" <${process.env.EMAIL_USER}>`,
+    from: '"UTAMED Admissions" <' + process.env.EMAIL_USER + '>',
     to: 'saimhassantariq0003@gmail.com',
-    subject: 'Application Deadline Expired - ' + app.fullName,
+    subject: 'Application Deadline Expired – UTAMED Application',
     html,
     text: stripHtml(html),
+    replyTo: 'support@utamed.com',
     headers: {
       'X-Priority': '3',
-      'X-Mailer': 'Bologna Application System'
+      'X-Mailer': 'UTAMED Application Portal'
     }
   };
 
