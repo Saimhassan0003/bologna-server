@@ -317,17 +317,17 @@ router.post('/:id/documents', cpUpload, async (req, res) => {
     if (fileMap['transcript3']) application.transcript3 = `/uploads/${fileMap['transcript3'][0].filename}`;
 
     // Recompute missingDocuments
-    const missing = [];
-    if (!application.profilePicture) missing.push('profilePicture');
-    if (!application.passportCopy) missing.push('passportCopy');
-    if (!application.resume) missing.push('resume');
-    if (!application.transcript1) missing.push('transcript1');
-    if (!application.transcript2) missing.push('transcript2');
-    if (!application.transcript3) missing.push('transcript3');
+    const newMissing = [];
+    if (!application.profilePicture) newMissing.push('profilePicture');
+    if (!application.passportCopy) newMissing.push('passportCopy');
+    if (!application.resume) newMissing.push('resume');
+    if (!application.transcript1) newMissing.push('transcript1');
+    if (!application.transcript2) newMissing.push('transcript2');
+    if (!application.transcript3) newMissing.push('transcript3');
 
-    application.missingDocuments = missing;
+    application.missingDocuments = newMissing;
 
-    if (missing.length === 0) {
+    if (newMissing.length === 0) {
       application.status = 'Submitted';
       application.documentDeadline = null;
       application.documentSubmittedAt = new Date();
