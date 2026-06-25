@@ -693,10 +693,145 @@ const verifySMTPConnection = async () => {
   }
 };
 
+/**
+ * Send confirmation email to student and notification to admin when documents are uploaded successfully
+ */
+const sendDocumentUploadConfirmationEmails = async (app) => {
+  console.log(`[SMTP] sendDocumentUploadConfirmationEmails called for application ID: ${app._id}`);
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
+  const mailerUser = process.env.EMAIL_USER || 'mailer@utamed.com';
+  const serverUrl = process.env.VITE_API_URL || 'http://localhost:5000';
+
+  // Email to USER
+  const userHtml = getBaseTemplate(
+    'Documents Uploaded Successfully — UTAMED University',
+    'Documents Uploaded Successfully',
+    `
+    <p>Dear <strong>${app.fullName}</strong>,</p>
+    <p>We are pleased to inform you that you have successfully uploaded all the required documents for your application to the <strong>${app.programme}</strong> program.</p>
+    <p>Your application is now complete and is under review by our Registry Office evaluation committee.</p>
+    <div class="divider"></div>
+    <p>Here are your updated submission details for your records:</p>
+    <div class="table-container">
+      <table class="detail-table">
+        <tr>
+          <th>Application ID</th>
+          <td>${app._id}</td>
+        </tr>
+        <tr>
+          <th>Program</th>
+          <td>${app.programme}</td>
+        </tr>
+        <tr>
+          <th>Department</th>
+          <td>${app.department}</td>
+        </tr>
+        <tr>
+          <th>Submission Date</th>
+          <td>${new Date(app.submissionDate).toLocaleDateString()}</td>
+        </tr>
+        <tr>
+          <th>Status</th>
+          <td><span class="badge badge-success">Submitted</span></td>
+        </tr>
+      </table>
+    </div>
+    <p>We will contact you via email as soon as a decision is made.</p>
+    `
+  );
+
+  // Email to ADMIN
+  const adminHtml = getBaseTemplate(
+    'Updated Documents Received — UTAMED University',
+    'Application Completed — Documents Uploaded',
+    `
+    <p>Hello Admin,</p>
+    <p>The student <strong>${app.fullName}</strong> has successfully uploaded all the missing documents for application <strong>${app._id}</strong>. The application is now fully complete.</p>
+    <div class="divider"></div>
+    <h3 style="color: #0f172a; margin-bottom: 12px; font-size: 16px;">Uploaded Documents</h3>
+    <div class="table-container">
+      <table class="detail-table">
+        <tr>
+          <th>Profile Picture</th>
+          <td>${app.profilePicture ? `<a href="${serverUrl}${app.profilePicture}" target="_blank">View File</a>` : 'Not Uploaded'}</td>
+        </tr>
+        <tr>
+          <th>Passport Copy</th>
+          <td>${app.passportCopy ? `<a href="${serverUrl}${app.passportCopy}" target="_blank">View File</a>` : 'Not Uploaded'}</td>
+        </tr>
+        <tr>
+          <th>Resume / CV</th>
+          <td>${app.resume ? `<a href="${serverUrl}${app.resume}" target="_blank">View File</a>` : 'Not Uploaded'}</td>
+        </tr>
+        <tr>
+          <th>Transcript 1</th>
+          <td>${app.transcript1 ? `<a href="${serverUrl}${app.transcript1}" target="_blank">View File</a>` : 'Not Uploaded'}</td>
+        </tr>
+        <tr>
+          <th>Transcript 2</th>
+          <td>${app.transcript2 ? `<a href="${serverUrl}${app.transcript2}" target="_blank">View File</a>` : 'N/A'}</td>
+        </tr>
+        <tr>
+          <th>Transcript 3</th>
+          <td>${app.transcript3 ? `<a href="${serverUrl}${app.transcript3}" target="_blank">View File</a>` : 'N/A'}</td>
+        </tr>
+      </table>
+    </div>
+    <div class="button-container">
+      <a href="${serverUrl}/admin" class="btn">Access registry Dashboard</a>
+    </div>
+    `
+  );
+
+  const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+
+  const userMailOptions = {
+    from: '"UTAMED Admissions" <' + mailerUser + '>',
+    to: app.email,
+    subject: 'Documents Uploaded Successfully – UTAMED Admissions',
+    html: userHtml,
+    text: stripHtml(userHtml),
+    replyTo: 'support@utamed.com',
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'UTAMED Admissions Portal'
+    }
+  };
+
+  const adminMailOptions = {
+    from: '"UTAMED Admissions" <' + mailerUser + '>',
+    to: adminEmail,
+    subject: 'Updated Documents Received – UTAMED Admissions',
+    html: adminHtml,
+    text: stripHtml(adminHtml),
+    replyTo: 'support@utamed.com',
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'UTAMED Admissions Portal'
+    }
+  };
+
+  console.log(`[SMTP] Sending upload confirmation emails concurrently to user (${app.email}) and admin (${adminEmail})...`);
+  
+  const transporter = getTransporter();
+  try {
+    await Promise.all([
+      transporter.sendMail(userMailOptions),
+      transporter.sendMail(adminMailOptions)
+    ]);
+    console.log('[SMTP] Upload confirmation emails successfully delivered.');
+    return { success: true };
+  } catch (err) {
+    console.error('[SMTP ERROR] Failed to send upload confirmation emails:', err.message);
+    throw err;
+  }
+};
+
 module.exports = {
   sendSubmissionEmails,
   sendApprovalEmails,
   notifyStudentApplicationExpired,
   notifyAdminApplicationExpired,
+  sendDocumentUploadConfirmationEmails,
   verifySMTPConnection
 };

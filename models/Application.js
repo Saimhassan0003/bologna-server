@@ -61,6 +61,7 @@ const applicationSchema = new mongoose.Schema({
   },
 
   // Expiry tracking
+  documentsUploadedCompleted: { type: Boolean, default: false },
   expiryEmailSent: { type: Boolean, default: false },
   expiredAt: { type: Date, default: null }
 });

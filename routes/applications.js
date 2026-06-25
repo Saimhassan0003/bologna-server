@@ -156,6 +156,7 @@ router.post('/', cpUpload, async (req, res) => {
     if (missingDocuments.length === 0) {
       savedApplication.documentSubmittedAt = submissionDate;
       savedApplication.docsUploadedAt = submissionDate;
+      savedApplication.documentsUploadedCompleted = true;
       await savedApplication.save();
     }
 
@@ -196,6 +197,12 @@ router.get('/:id', async (req, res) => {
     if (!application) {
       return res.status(404).json({ message: 'Application not found' });
     }
+
+    // Block if documents have already been uploaded
+    if (application.documentsUploadedCompleted || application.status !== 'PendingDocuments') {
+      return res.status(400).json({ message: 'Documents have already been uploaded for this email address. Multiple uploads are not allowed.' });
+    }
+
     // Only return fields necessary for the document upload view
     res.json({
       _id: application._id,
@@ -261,6 +268,11 @@ router.post('/:id/documents', cpUpload, async (req, res) => {
     const application = await Application.findById(req.params.id);
     if (!application) return res.status(404).json({ message: 'Application not found' });
 
+    // Block if documents have already been uploaded
+    if (application.documentsUploadedCompleted || application.status !== 'PendingDocuments') {
+      return res.status(400).json({ message: 'Documents have already been uploaded for this email address. Multiple uploads are not allowed.' });
+    }
+
     // If there is a deadline and it has passed, reject
     if (application.documentDeadline && application.documentDeadline < new Date()) {
       return res.status(400).json({ message: 'Document upload deadline has expired.' });
@@ -291,6 +303,7 @@ router.post('/:id/documents', cpUpload, async (req, res) => {
       application.documentDeadline = null;
       application.documentSubmittedAt = new Date();
       application.docsUploadedAt = new Date();
+      application.documentsUploadedCompleted = true;
     } else {
       application.status = 'PendingDocuments';
       // keep existing deadline if present, otherwise set one to 2 months from submission
@@ -307,7 +320,11 @@ router.post('/:id/documents', cpUpload, async (req, res) => {
 
     // Notify via email about updated submission state
     try {
-      await emailService.sendSubmissionEmails(updated);
+      if (updated.documentsUploadedCompleted) {
+        await emailService.sendDocumentUploadConfirmationEmails(updated);
+      } else {
+        await emailService.sendSubmissionEmails(updated);
+      }
     } catch (mailErr) {
       console.error('[SMTP ERROR] Failed to send document-update emails:', mailErr.message);
     }
