@@ -157,6 +157,7 @@ router.post('/', cpUpload, async (req, res) => {
       savedApplication.documentSubmittedAt = submissionDate;
       savedApplication.docsUploadedAt = submissionDate;
       savedApplication.documentsUploadedCompleted = true;
+      savedApplication.uploadLink = '';
       await savedApplication.save();
     }
 
@@ -333,6 +334,7 @@ router.post('/:id/documents', cpUpload, async (req, res) => {
       application.documentSubmittedAt = new Date();
       application.docsUploadedAt = new Date();
       application.documentsUploadedCompleted = true;
+      application.uploadLink = '';
     } else {
       application.status = 'PendingDocuments';
       // keep existing deadline if present, otherwise set one to 2 months from submission
