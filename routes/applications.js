@@ -172,7 +172,7 @@ router.post('/', cpUpload, async (req, res) => {
       ...savedApplication.toObject(),
       message: status === 'Submitted' 
         ? 'Application submitted successfully!' 
-        : `Application submitted. Please upload ${missingDocuments.length} remaining document(s) within 5 minutes.`
+        : `Application submitted. Please upload ${missingDocuments.length} remaining document(s) within 2 months.`
     });
   } catch (err) {
     console.error(err.message);

@@ -569,7 +569,7 @@ const notifyStudentApplicationExpired = async (app) => {
     'Document Submission Period Expired',
     `
     <p>Dear ${app.fullName},</p>
-    <p style="color: #d32f2f; font-weight: 600;">Your 5-minute document submission period has expired.</p>
+    <p style="color: #d32f2f; font-weight: 600;">Your 2-month document submission period has expired.</p>
     <p>You submitted your application but the following documents were not uploaded within the required timeframe:</p>
     <pre style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; overflow-x: auto;">
 ${missingDocsStr}
