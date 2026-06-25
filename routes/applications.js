@@ -280,6 +280,35 @@ router.post('/:id/documents', cpUpload, async (req, res) => {
 
     // Map uploaded files to application fields
     const fileMap = req.files || {};
+
+    // Enforce that all currently missing documents must be uploaded in this request
+    const missing = application.missingDocuments || [];
+    const missingUploads = [];
+    if (missing.includes('profilePicture') && !fileMap['profilePicture']) missingUploads.push('profilePicture');
+    if (missing.includes('passportCopy') && !fileMap['passportCopy']) missingUploads.push('passportCopy');
+    if (missing.includes('resume') && !fileMap['resume']) missingUploads.push('resume');
+    if (missing.includes('transcript1') && !fileMap['transcript1']) missingUploads.push('transcript1');
+    if (missing.includes('transcript2') && !fileMap['transcript2']) missingUploads.push('transcript2');
+    if (missing.includes('transcript3') && !fileMap['transcript3']) missingUploads.push('transcript3');
+
+    if (missingUploads.length > 0) {
+      // Clean up uploaded files to prevent disk clutter
+      const fs = require('fs');
+      Object.keys(fileMap).forEach(fieldname => {
+        fileMap[fieldname].forEach(file => {
+          try {
+            fs.unlinkSync(file.path);
+          } catch (e) {
+            console.error('Failed to delete uploaded file during clean-up:', e.message);
+          }
+        });
+      });
+
+      return res.status(400).json({ 
+        message: `All missing documents must be uploaded together. Missing: ${missingUploads.join(', ')}` 
+      });
+    }
+
     if (fileMap['profilePicture']) application.profilePicture = `/uploads/${fileMap['profilePicture'][0].filename}`;
     if (fileMap['passportCopy']) application.passportCopy = `/uploads/${fileMap['passportCopy'][0].filename}`;
     if (fileMap['resume']) application.resume = `/uploads/${fileMap['resume'][0].filename}`;
