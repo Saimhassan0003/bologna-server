@@ -1,20 +1,7 @@
-const dns = require('dns');
-dns.setDefaultResultOrder('ipv4first');
+const { Resend } = require('resend');
 
-const nodemailer = require('nodemailer');
-// SMTP Transporter factory — credentials read at send-time so dotenv is always loaded first
-const getTransporter = () => nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // Use SSL/TLS
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  },
-  tls: {
-    rejectUnauthorized: false // Avoid blockages from custom local DNS / firewall policies
-  }
-});
+// Resend client factory — credentials read at send-time so dotenv is always loaded first
+const getResendClient = () => new Resend(process.env.RESEND_API_KEY);
 
 // Helper for professional email container CSS/HTML
 const getBaseTemplate = (title, contentHeader, contentBody) => `
@@ -187,19 +174,43 @@ const getBaseTemplate = (title, contentHeader, contentBody) => `
 </html>
 `;
 
+const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+
+// "From" address used for all outgoing emails via Resend.
+// NOTE: Until you verify your own domain on Resend, you MUST use this
+// sandbox address. Once your domain (e.g. utamed.com) is verified on
+// resend.com/domains, change this to e.g. "UTAMED Admissions <admissions@utamed.com>"
+const FROM_ADDRESS = process.env.RESEND_FROM || 'UTAMED Admissions <onboarding@resend.dev>';
+
+/**
+ * Sends a single email via Resend and throws on failure (mirrors old nodemailer behavior)
+ */
+const sendViaResend = async (resend, mailOptions) => {
+  const { data, error } = await resend.emails.send({
+    from: mailOptions.from || FROM_ADDRESS,
+    to: mailOptions.to,
+    subject: mailOptions.subject,
+    html: mailOptions.html,
+    text: mailOptions.text,
+    reply_to: mailOptions.replyTo,
+  });
+
+  if (error) {
+    throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
+  }
+  return data;
+};
+
 /**
  * 1 & 2. Send emails upon Application Submission
  * Both emails send concurrently.
  */
 const sendSubmissionEmails = async (app) => {
-  console.log(`[SMTP] sendSubmissionEmails called for application ID: ${app._id}`);
+  console.log(`[RESEND] sendSubmissionEmails called for application ID: ${app._id}`);
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
-  const mailerUser = process.env.EMAIL_USER || 'mailer@utamed.com';
 
-  // Check if this is a pending documents application or a complete submission
   const isPendingDocuments = app.status === 'PendingDocuments';
 
-  // Email to USER
   const userHtml = getBaseTemplate(
     'Application Submitted — UTAMED University',
     isPendingDocuments ? 'Application Received — Documents Required' : 'Application Received Successfully',
@@ -246,7 +257,6 @@ const sendSubmissionEmails = async (app) => {
     `
   );
 
-  // Email to ADMIN
   const adminHtml = getBaseTemplate(
     'New Application Received — UTAMED University',
     'New Directory Submission Alert',
@@ -348,49 +358,35 @@ const sendSubmissionEmails = async (app) => {
     `
   );
 
-  const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
-
   const userMailOptions = {
-    from: '"UTAMED Admissions" <' + mailerUser + '>',
     to: app.email,
     subject: isPendingDocuments ? 'Action Required: Upload Your Documents – UTAMED Admissions' : 'Application Submitted – UTAMED Admissions',
     html: userHtml,
     text: stripHtml(userHtml),
     replyTo: 'support@utamed.com',
-    headers: {
-      'X-Priority': '3',
-      'X-Mailer': 'UTAMED Admissions Portal'
-    }
   };
 
   const adminMailOptions = {
-    from: '"UTAMED Admissions" <' + mailerUser + '>',
     to: adminEmail,
     subject: 'New Application Received – UTAMED Admissions',
     html: adminHtml,
     text: stripHtml(adminHtml),
     replyTo: 'support@utamed.com',
-    headers: {
-      'X-Priority': '3',
-      'X-Mailer': 'UTAMED Admissions Portal'
-    }
   };
 
-  // Perform simultaneous email transmission
-  console.log(`[SMTP] Sending submission emails concurrently to user (${app.email}) and admin (${adminEmail})...`);
-  
-  // Wrap sending in a try/catch. Use Promise.all to send simultaneously.
-  const transporter = getTransporter();
+  console.log(`[RESEND] Sending submission emails concurrently to user (${app.email}) and admin (${adminEmail})...`);
+
+  const resend = getResendClient();
   try {
     await Promise.all([
-      transporter.sendMail(userMailOptions),
-      transporter.sendMail(adminMailOptions)
+      sendViaResend(resend, userMailOptions),
+      sendViaResend(resend, adminMailOptions)
     ]);
-    console.log('[SMTP] Submission emails successfully delivered.');
+    console.log('[RESEND] Submission emails successfully delivered.');
     return { success: true };
   } catch (err) {
-    console.error('[SMTP ERROR] Failed to send submission emails:', err.message);
-    throw err; // propagate up to let router handle or log it
+    console.error('[RESEND ERROR] Failed to send submission emails:', err.message);
+    throw err;
   }
 };
 
@@ -400,9 +396,7 @@ const sendSubmissionEmails = async (app) => {
  */
 const sendApprovalEmails = async (app) => {
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
-  const mailerUser = process.env.EMAIL_USER || 'mailer@utamed.com';
 
-  // Email to USER
   const userHtml = getBaseTemplate(
     'Application Approved — UTAMED University',
     'Congratulations! Your Application is Approved',
@@ -436,7 +430,6 @@ const sendApprovalEmails = async (app) => {
     `
   );
 
-  // Email to ADMIN
   const adminHtml = getBaseTemplate(
     'Application Approved — UTAMED University',
     'Application Approved & Assigned successfully',
@@ -471,7 +464,6 @@ const sendApprovalEmails = async (app) => {
     `
   );
 
-  // Email to APPROVED CENTER
   const centerHtml = getBaseTemplate(
     'New Application Assigned — UTAMED University',
     'New Approved Student Profile Assigned',
@@ -523,61 +515,43 @@ const sendApprovalEmails = async (app) => {
     `
   );
 
-  const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
-
   const userMailOptions = {
-    from: '"UTAMED Admissions" <' + mailerUser + '>',
     to: app.email,
     subject: 'Application Approved – UTAMED Admissions',
     html: userHtml,
     text: stripHtml(userHtml),
     replyTo: 'support@utamed.com',
-    headers: {
-      'X-Priority': '3',
-      'X-Mailer': 'UTAMED Admissions Portal'
-    }
   };
 
   const adminMailOptions = {
-    from: '"UTAMED Admissions" <' + mailerUser + '>',
     to: adminEmail,
     subject: 'Application Approved – UTAMED Admissions',
     html: adminHtml,
     text: stripHtml(adminHtml),
     replyTo: 'support@utamed.com',
-    headers: {
-      'X-Priority': '3',
-      'X-Mailer': 'UTAMED Admissions Portal'
-    }
   };
 
   const centerMailOptions = {
-    from: '"UTAMED Admissions" <' + mailerUser + '>',
     to: app.centreEmail,
     subject: 'New Application Assigned – UTAMED Admissions',
     html: centerHtml,
     text: stripHtml(centerHtml),
     replyTo: 'support@utamed.com',
-    headers: {
-      'X-Priority': '3',
-      'X-Mailer': 'UTAMED Admissions Portal'
-    }
   };
 
-  // Perform simultaneous email transmissions for all 3 stakeholders
-  console.log(`[SMTP] Sending approval emails concurrently to User (${app.email}), Admin (${adminEmail}), and Centre (${app.centreEmail})...`);
-  
-  const transporter = getTransporter();
+  console.log(`[RESEND] Sending approval emails concurrently to User (${app.email}), Admin (${adminEmail}), and Centre (${app.centreEmail})...`);
+
+  const resend = getResendClient();
   try {
     await Promise.all([
-      transporter.sendMail(userMailOptions),
-      transporter.sendMail(adminMailOptions),
-      transporter.sendMail(centerMailOptions)
+      sendViaResend(resend, userMailOptions),
+      sendViaResend(resend, adminMailOptions),
+      sendViaResend(resend, centerMailOptions)
     ]);
-    console.log('[SMTP] All 3 approval and assignment notifications delivered successfully.');
+    console.log('[RESEND] All 3 approval and assignment notifications delivered successfully.');
     return { success: true };
   } catch (err) {
-    console.error('[SMTP ERROR] Failed to send approval emails:', err.message);
+    console.error('[RESEND ERROR] Failed to send approval emails:', err.message);
     throw err;
   }
 };
@@ -586,7 +560,7 @@ const sendApprovalEmails = async (app) => {
  * Notify student when application deadline expires
  */
 const notifyStudentApplicationExpired = async (app) => {
-  const missingDocsStr = app.missingDocuments?.length > 0 
+  const missingDocsStr = app.missingDocuments?.length > 0
     ? app.missingDocuments.map(d => `• ${d}`).join('\n')
     : 'Unknown';
 
@@ -609,27 +583,20 @@ ${missingDocsStr}
     `
   );
 
-  const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
-
   const mailOptions = {
-    from: '"UTAMED Admissions" <' + process.env.EMAIL_USER + '>',
     to: app.email,
     subject: 'Action Required: Document Submission Period Expired – UTAMED Application',
     html,
     text: stripHtml(html),
     replyTo: 'support@utamed.com',
-    headers: {
-      'X-Priority': '3',
-      'X-Mailer': 'UTAMED Application Portal'
-    }
   };
 
-  const transporter = getTransporter();
+  const resend = getResendClient();
   try {
-    await transporter.sendMail(mailOptions);
-    console.log(`[SMTP] Student expiration email sent to ${app.email}`);
+    await sendViaResend(resend, mailOptions);
+    console.log(`[RESEND] Student expiration email sent to ${app.email}`);
   } catch (err) {
-    console.error('[SMTP ERROR] Failed to send student expiration email:', err.message);
+    console.error('[RESEND ERROR] Failed to send student expiration email:', err.message);
     throw err;
   }
 };
@@ -638,7 +605,7 @@ ${missingDocsStr}
  * Notify admin when application deadline expires
  */
 const notifyAdminApplicationExpired = async (app) => {
-  const missingDocsStr = app.missingDocuments?.length > 0 
+  const missingDocsStr = app.missingDocuments?.length > 0
     ? app.missingDocuments.map(d => `• ${d}`).join('\n')
     : 'Unknown';
 
@@ -659,51 +626,45 @@ ${missingDocsStr}
     `
   );
 
-  const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
-
   const mailOptions = {
-    from: '"UTAMED Admissions" <' + process.env.EMAIL_USER + '>',
     to: 'saimhassantariq0003@gmail.com',
     subject: 'Application Deadline Expired – UTAMED Application',
     html,
     text: stripHtml(html),
     replyTo: 'support@utamed.com',
-    headers: {
-      'X-Priority': '3',
-      'X-Mailer': 'UTAMED Application Portal'
-    }
   };
 
-  const transporter = getTransporter();
+  const resend = getResendClient();
   try {
-    await transporter.sendMail(mailOptions);
-    console.log('[SMTP] Admin expiration email sent');
+    await sendViaResend(resend, mailOptions);
+    console.log('[RESEND] Admin expiration email sent');
   } catch (err) {
-    console.error('[SMTP ERROR] Failed to send admin expiration email:', err.message);
+    console.error('[RESEND ERROR] Failed to send admin expiration email:', err.message);
     throw err;
   }
 };
 
+/**
+ * Kept for compatibility with existing call sites (e.g. server startup logs).
+ * Resend uses HTTPS API calls, not a persistent SMTP connection, so there is
+ * nothing to "verify" ahead of time — we just confirm the API key is present.
+ */
 const verifySMTPConnection = async () => {
-  const transporter = getTransporter();
-  try {
-    await transporter.verify();
-    console.log('[SMTP] Connection verified successfully. Ready to send emails.');
-  } catch (err) {
-    console.error('[SMTP ERROR] Failed to verify SMTP connection details:', err);
+  if (!process.env.RESEND_API_KEY) {
+    console.error('[RESEND ERROR] RESEND_API_KEY is missing from environment variables.');
+    return;
   }
+  console.log('[RESEND] API key detected. Ready to send emails via Resend.');
 };
 
 /**
  * Send confirmation email to student and notification to admin when documents are uploaded successfully
  */
 const sendDocumentUploadConfirmationEmails = async (app) => {
-  console.log(`[SMTP] sendDocumentUploadConfirmationEmails called for application ID: ${app._id}`);
+  console.log(`[RESEND] sendDocumentUploadConfirmationEmails called for application ID: ${app._id}`);
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
-  const mailerUser = process.env.EMAIL_USER || 'mailer@utamed.com';
   const serverUrl = process.env.VITE_API_URL || 'http://localhost:5000';
 
-  // Email to USER
   const userHtml = getBaseTemplate(
     'Documents Uploaded Successfully — UTAMED University',
     'Documents Uploaded Successfully',
@@ -741,7 +702,6 @@ const sendDocumentUploadConfirmationEmails = async (app) => {
     `
   );
 
-  // Email to ADMIN
   const adminHtml = getBaseTemplate(
     'Updated Documents Received — UTAMED University',
     'Application Completed — Documents Uploaded',
@@ -784,44 +744,32 @@ const sendDocumentUploadConfirmationEmails = async (app) => {
     `
   );
 
-  const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
-
   const userMailOptions = {
-    from: `"Bologna Admissions" <${mailerUser}>`,
     to: app.email,
     subject: 'Documents Uploaded Successfully - UTAMED Admissions',
     html: userHtml,
     text: stripHtml(userHtml),
-    headers: {
-      'X-Priority': '3',
-      'X-Mailer': 'Bologna Application System'
-    }
   };
 
   const adminMailOptions = {
-    from: `"Bologna Admissions" <${mailerUser}>`,
     to: adminEmail,
     subject: 'Updated Documents Received - UTAMED Admissions',
     html: adminHtml,
     text: stripHtml(adminHtml),
-    headers: {
-      'X-Priority': '3',
-      'X-Mailer': 'Bologna Application System'
-    }
   };
 
-  console.log(`[SMTP] Sending upload confirmation emails concurrently to user (${app.email}) and admin (${adminEmail})...`);
-  
-  const transporter = getTransporter();
+  console.log(`[RESEND] Sending upload confirmation emails concurrently to user (${app.email}) and admin (${adminEmail})...`);
+
+  const resend = getResendClient();
   try {
     await Promise.all([
-      transporter.sendMail(userMailOptions),
-      transporter.sendMail(adminMailOptions)
+      sendViaResend(resend, userMailOptions),
+      sendViaResend(resend, adminMailOptions)
     ]);
-    console.log('[SMTP] Upload confirmation emails successfully delivered.');
+    console.log('[RESEND] Upload confirmation emails successfully delivered.');
     return { success: true };
   } catch (err) {
-    console.error('[SMTP ERROR] Failed to send upload confirmation emails:', err.message);
+    console.error('[RESEND ERROR] Failed to send upload confirmation emails:', err.message);
     throw err;
   }
 };
