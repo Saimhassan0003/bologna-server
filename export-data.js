@@ -9,7 +9,7 @@ const Application = require('./models/Application');
 const exportData = async () => {
   try {
     // Connect to local MongoDB
-    await mongoose.connect('mongodb://localhost:27017/utamed');
+    await mongoose.connect('mongodb://localhost:27017/Student Portal');
     console.log('Connected to local MongoDB...');
 
     // Export Admins

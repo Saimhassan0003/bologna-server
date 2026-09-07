@@ -172,7 +172,7 @@ const getBaseTemplate = (title, contentHeader, contentBody) => `
       <div class="footer">
         <p>&copy; ${new Date().getFullYear()} Student Portal. All rights reserved.</p>
         <p>Institute Student Portal Academic Admissions Portal</p>
-        <p>Need support? Please email us at <a href="mailto:support@utamed.com">support@utamed.com</a></p>
+        <p>Need support? Please email us at <a href="mailto:support@studentportal.com">support@studentportal.com</a></p>
       </div>
     </div>
   </div>
@@ -184,8 +184,8 @@ const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').
 
 // "From" address used for all outgoing emails via Resend.
 // NOTE: Until you verify your own domain on Resend, you MUST use this
-// sandbox address. Once your domain (e.g. utamed.com) is verified on
-// resend.com/domains, change this to e.g. "Student Portal <admissions@utamed.com>"
+// sandbox address. Once your domain (e.g. studentportal.com) is verified on
+// resend.com/domains, change this to e.g. "Student Portal <admissions@studentportal.com>"
 const FROM_ADDRESS = process.env.RESEND_FROM || 'Student Portal <onboarding@resend.dev>';
 
 const sendViaResend = async (resend, mailOptions) => {
@@ -242,7 +242,7 @@ const sendViaResend = async (resend, mailOptions) => {
 
 const sendSubmissionEmails = async (app) => {
   console.log(`[RESEND] sendSubmissionEmails called for application ID: ${app._id}`);
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@studentportal.com';
 
   const isPendingDocuments = app.status === 'PendingDocuments';
 
@@ -409,7 +409,7 @@ const sendSubmissionEmails = async (app) => {
     subject: 'Application Received – Student Portal',
     html: userHtml,
     text: stripHtml(userHtml),
-    replyTo: 'support@utamed.com',
+    replyTo: 'support@studentportal.com',
     attachments: [
       {
         filename: 'On Submission of Application form to the student.pdf',
@@ -423,7 +423,7 @@ const sendSubmissionEmails = async (app) => {
     subject: 'New Admission Application Received',
     html: adminHtml,
     text: stripHtml(adminHtml),
-    replyTo: 'support@utamed.com',
+    replyTo: 'support@studentportal.com',
     attachments: [
       {
         filename: 'On Submission of Application form to Admin.pdf',
@@ -460,7 +460,7 @@ const sendSubmissionEmails = async (app) => {
  * All 3 emails send concurrently.
  */
 const sendApprovalEmails = async (app) => {
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@studentportal.com';
 
   const userHtml = getBaseTemplate(
     'Application Approved — Student Portal',
@@ -594,7 +594,7 @@ const sendApprovalEmails = async (app) => {
     subject: 'Congratulations! Your Admission Has Been Approved',
     html: userHtml,
     text: stripHtml(userHtml),
-    replyTo: 'support@utamed.com',
+    replyTo: 'support@studentportal.com',
     attachments: [
       {
         filename: 'Admission letter.pdf',
@@ -608,7 +608,7 @@ const sendApprovalEmails = async (app) => {
     subject: 'Application Approved – Student Portal',
     html: adminHtml,
     text: stripHtml(adminHtml),
-    replyTo: 'support@utamed.com',
+    replyTo: 'support@studentportal.com',
     attachments: [
       {
         filename: 'Admission letter.pdf',
@@ -630,7 +630,7 @@ const sendApprovalEmails = async (app) => {
       subject: 'New Application Assigned – Student Portal',
       html: centerHtml,
       text: stripHtml(centerHtml),
-      replyTo: 'support@utamed.com',
+      replyTo: 'support@studentportal.com',
       attachments: [
         {
           filename: 'Admission letter.pdf',
@@ -687,7 +687,7 @@ const sendRejectionEmail = async (app, reason = '') => {
     subject: 'Application Status Update',
     html: userHtml,
     text: stripHtml(userHtml),
-    replyTo: 'support@utamed.com',
+    replyTo: 'support@studentportal.com',
     attachments: [
       {
         filename: 'Application Rejection.pdf',
@@ -743,7 +743,7 @@ ${missingDocsStr}
     subject: 'Action Required: Document Submission Period Expired – Student Portal Application',
     html,
     text: stripHtml(html),
-    replyTo: 'support@utamed.com',
+    replyTo: 'support@studentportal.com',
   };
 
   const resend = getResendClient();
@@ -781,14 +781,14 @@ ${missingDocsStr}
     `
   );
 
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@studentportal.com';
 
   const mailOptions = {
     to: adminEmail,
     subject: 'Application Deadline Expired – Student Portal Application',
     html,
     text: stripHtml(html),
-    replyTo: 'support@utamed.com',
+    replyTo: 'support@studentportal.com',
   };
 
   const resend = getResendClient();
@@ -839,7 +839,7 @@ const verifySMTPConnection = async () => {
  */
 const sendDocumentUploadConfirmationEmails = async (app) => {
   console.log(`[RESEND] sendDocumentUploadConfirmationEmails called for application ID: ${app._id}`);
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@studentportal.com';
   const serverUrl = process.env.VITE_API_URL || 'http://localhost:5000';
 
   const userHtml = getBaseTemplate(

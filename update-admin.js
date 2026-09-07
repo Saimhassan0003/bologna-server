@@ -25,15 +25,15 @@ const run = async () => {
     console.log('Current admins in DB:', admins.map(a => a.email));
 
     // Update the admin credentials (change email and password)
-    const newEmail = 'admissions@wto.utamed.university';
-    const newPassword = 'Utamed@2026$$';
+    const newEmail = 'admissions@studentportal.com';
+    const newPassword = 'Student Portal@2026$$';
 
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(newPassword, salt);
 
     // If there is an existing admin, update it. If not, upsert it.
     const result = await Admin.updateOne(
-      {}, // matches the first admin record (or you can match by existing admin@UTAMED.com)
+      {}, // matches the first admin record (or you can match by existing admin@studentportal.com)
       { $set: { email: newEmail, password: hash } },
       { upsert: true }
     );

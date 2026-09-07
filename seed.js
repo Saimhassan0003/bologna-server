@@ -12,8 +12,8 @@ require('dotenv').config();
 const bcrypt = require('bcrypt');
 const db     = require('./config/db');
 
-const ADMIN_EMAIL    = process.env.SEED_ADMIN_EMAIL    || 'admissions@wto.utamed.university';
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'Utamed@2026$$';
+const ADMIN_EMAIL    = process.env.SEED_ADMIN_EMAIL    || 'admissions@student.com';
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'student@2026$$';
 
 const defaultDepartments = ['Bachelor', 'Master', 'Doctorate'];
 

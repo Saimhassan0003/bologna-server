@@ -18,8 +18,8 @@ const drawFooter = (doc, isUK = false) => {
     ? "11 Regent Gate, 83 High Street, Waltham Cross, Hertfordshire, United Kingdom EN8 7AF"
     : "17-3 Jalan 8/1D, Section 8, 46050 Petaling Jaya, Selangor, Malaysia";
   const office = isUK
-    ? "Office: +44(0) 787 871 6124 Web: www.wto.utamed.university"
-    : "Office: +60 03-7955 5285 | Web: www.wto.utamed.university";
+    ? "Office: +44(0) 787 871 6124 Web: www.studentportal.com"
+    : "Office: +60 03-7955 5285 | Web: www.studentportal.com";
 
   const savedColor = doc._fillColor;
   doc.fontSize(8.5)
@@ -53,7 +53,7 @@ const generateStudentSubmissionPDF = (app, outputPath) => {
     doc.font('Helvetica-Bold')
        .fontSize(12)
        .fillColor('#000000')
-       .text('Subject: Confirmation of Application Submission—WTO UTAMED', 50, doc.y)
+       .text('Subject: Confirmation of Application Submission—Student Portal', 50, doc.y)
        .moveDown(1.5);
 
     // Salutation
@@ -63,7 +63,7 @@ const generateStudentSubmissionPDF = (app, outputPath) => {
        .moveDown(1.2);
 
     // Body text
-    doc.text('We are pleased to confirm that your application for a programme with WTO UTAMED has been successfully received.', { lineGap: 4 })
+    doc.text('We are pleased to confirm that your application for a programme with Student Portal has been successfully received.', { lineGap: 4 })
        .moveDown(1.2);
 
     doc.text('Our admissions team is currently reviewing your submission. We will contact you shortly regarding the next steps of the enrolment process.', { lineGap: 4 })
@@ -72,7 +72,7 @@ const generateStudentSubmissionPDF = (app, outputPath) => {
     doc.text('Should you have any inquiries in the meantime, please do not hesitate to contact us. When reaching out, kindly include your full name and the name of the programme you have applied to ensure we can assist you promptly.', { lineGap: 4 })
        .moveDown(1.2);
 
-    doc.text('Thank you for choosing WTO-UTAMED. We look forward to welcoming you to our academic community.', { lineGap: 4 })
+    doc.text('Thank you for choosing Student Portal. We look forward to welcoming you to our academic community.', { lineGap: 4 })
        .moveDown(1.5);
 
     // Dynamic applicant details table/list
@@ -116,7 +116,7 @@ const generateStudentSubmissionPDF = (app, outputPath) => {
     doc.font('Helvetica-Bold')
        .text('Admissions Administration', 50, doc.y)
        .font('Helvetica')
-       .text('WTO Utamed', 50, doc.y);
+       .text('Student Portal', 50, doc.y);
 
     // Footer at the bottom
     drawFooter(doc, false);
@@ -155,7 +155,7 @@ const generateAdminSubmissionPDF = (app, outputPath) => {
 
     doc.font('Helvetica')
        .fontSize(10.5)
-       .text('This communication serves as formal notification regarding a recently submitted application for admission to WTO UTAMED. Please find the applicant’s complete details below for your review:', { lineGap: 4 })
+       .text('This communication serves as formal notification regarding a recently submitted application for admission to Student Portal. Please find the applicant’s complete details below for your review:', { lineGap: 4 })
        .moveDown(1.5);
 
     // List of dynamic details as requested by user
@@ -196,7 +196,7 @@ const generateAdminSubmissionPDF = (app, outputPath) => {
     doc.font('Helvetica-Bold')
        .text('Admissions Administration', 50, doc.y)
        .font('Helvetica')
-       .text('Wto Utamed', 50, doc.y);
+       .text('Student Portal', 50, doc.y);
 
     // UK address footer for Admin submission
     drawFooter(doc, true);
@@ -250,7 +250,7 @@ const generateAdmissionLetterPDF = (app, outputPath) => {
     doc.font('Helvetica-Bold').text('Programme: ', 50, doc.y, { continued: true }).font('Helvetica').text(programmeName)
        .moveDown(1);
 
-    doc.text('Congratulations! We are very pleased to inform you that you have been admitted to the programme at WTO Utamed. We welcome you to our world-class academic community and look forward to your contributions.', { lineGap: 4 })
+    doc.text('Congratulations! We are very pleased to inform you that you have been admitted to the programme at Student Portal. We welcome you to our world-class academic community and look forward to your contributions.', { lineGap: 4 })
        .moveDown(1.2);
 
     // Section 1
@@ -261,7 +261,7 @@ const generateAdmissionLetterPDF = (app, outputPath) => {
     doc.font('Helvetica')
        .text(`Access to your learning modules will be granted on commencement date (${commencementDate}) of your programme. Please utilize the login credentials previously forwarded to you. Your primary portal for learning materials, official notices and social engagement is `, { lineGap: 4, continued: true })
        .fillColor('#0000EE')
-       .text('https://lms.utamed.university', { link: 'https://lms.utamed.university', underline: true })
+       .text('https://lms.studentportal.com', { link: 'https://lms.studentportal.com', underline: true })
        .fillColor('#000000')
        .moveDown(0.8);
 
@@ -269,7 +269,7 @@ const generateAdmissionLetterPDF = (app, outputPath) => {
     doc.font('Helvetica-Bold').text('Portal Access Credentials:', 60, doc.y).moveDown(0.4);
     doc.font('Helvetica')
        .text(`• Student ID: ${studentId}`, 70, doc.y)
-       .text(`• Portal Login URL: https://lms.utamed.university`, 70, doc.y)
+       .text(`• Portal Login URL: https://lms.studentportal.com`, 70, doc.y)
        .text(`• Username: ${app.email}`, 70, doc.y)
        .text(`• Temporary Password: Your phone number (${app.phone}) or default registration password`, 70, doc.y)
        .moveDown(1);
@@ -302,7 +302,7 @@ const generateAdmissionLetterPDF = (app, outputPath) => {
 
     doc.font('Helvetica')
        .fontSize(10)
-       .text('If you are studying at a collaborative Marketing Centre of WTO Utamed, please contact your Marketing Centre for your timetable and tuition fee arrangements.', 50, 40, { lineGap: 4 })
+       .text('If you are studying at a collaborative Marketing Centre of Student Portal, please contact your Marketing Centre for your timetable and tuition fee arrangements.', 50, 40, { lineGap: 4 })
        .moveDown(1);
 
     // Section 4

@@ -80,7 +80,7 @@ const getBaseTemplate = (title, contentHeader, contentBody) => `
   <div class="wrapper">
     <div class="container">
       <div class="header">
-        <h1>UTAMED Postal Request System</h1>
+        <h1>Student Portal Postal Request System</h1>
         <p>Student Document Workflow</p>
       </div>
       <div class="content">
@@ -88,7 +88,7 @@ const getBaseTemplate = (title, contentHeader, contentBody) => `
         ${contentBody}
       </div>
       <div class="footer">
-        <p>&copy; ${new Date().getFullYear()} UTAMED. All rights reserved.</p>
+        <p>&copy; ${new Date().getFullYear()} Student Portal. All rights reserved.</p>
         <p>This is an automated notification from the Postal Request System.</p>
       </div>
     </div>
@@ -100,9 +100,9 @@ const getBaseTemplate = (title, contentHeader, contentBody) => `
 // ─── Send Helper ──────────────────────────────────────────────────────────────
 
 const sendEmail = async (to, subject, html) => {
-  const from = process.env.EMAIL_USER || 'noreply@utamed.com';
+  const from = process.env.EMAIL_USER || 'noreply@studentportal.com';
   try {
-    await transporter.sendMail({ from: `"UTAMED Postal System" <${from}>`, to, subject, html });
+    await transporter.sendMail({ from: `"Student Portal Postal System" <${from}>`, to, subject, html });
     console.log(`[SMTP] ✅ Email sent to ${to}: "${subject}"`);
     return true;
   } catch (err) {
@@ -152,7 +152,7 @@ const DOC_LABELS = {
  * 1. Admin — new application fully submitted (all docs present)
  */
 const notifyAdminSubmitted = async (request, studentEmail) => {
-  const to      = process.env.ADMIN_EMAIL || 'admin@utamed.com';
+  const to      = process.env.ADMIN_EMAIL || 'admin@studentportal.com';
   const subject = `[SUBMITTED] New Postal Request — ${request.applicationNumber}`;
   const html    = getBaseTemplate(subject, 'New Postal Request Submitted', `
     <p>Hello Admin,</p>
@@ -200,7 +200,7 @@ const notifyStudentSubmitted = async (request, studentEmail) => {
  * 3. Admin — application submitted with missing documents
  */
 const notifyAdminPending = async (request, studentEmail) => {
-  const to      = process.env.ADMIN_EMAIL || 'admin@utamed.com';
+  const to      = process.env.ADMIN_EMAIL || 'admin@studentportal.com';
   const subject = `[PENDING] Postal Request With Missing Documents — ${request.applicationNumber}`;
   const deadlineMinutes = parseInt(process.env.DOCUMENT_DEADLINE_MINUTES) || 5;
   const html    = getBaseTemplate(subject, 'Postal Request — Documents Pending', `
@@ -260,7 +260,7 @@ const notifyStudentPending = async (request, studentEmail) => {
  * 5. Admin — all pending docs uploaded, status now SUBMITTED
  */
 const notifyAdminDocsUploaded = async (request, studentEmail) => {
-  const to      = process.env.ADMIN_EMAIL || 'admin@utamed.com';
+  const to      = process.env.ADMIN_EMAIL || 'admin@studentportal.com';
   const subject = `[COMPLETED] All Documents Received — ${request.applicationNumber}`;
   const html    = getBaseTemplate(subject, 'Pending Documents Uploaded — Application Complete', `
     <p>Hello Admin,</p>
@@ -306,7 +306,7 @@ const notifyStudentDocsUploaded = async (request, studentEmail) => {
  * 7. Admin — application expired
  */
 const notifyAdminExpired = async (request, studentEmail) => {
-  const to      = process.env.ADMIN_EMAIL || 'admin@utamed.com';
+  const to      = process.env.ADMIN_EMAIL || 'admin@studentportal.com';
   const subject = `[EXPIRED] Postal Request Expired — ${request.applicationNumber}`;
   const html    = getBaseTemplate(subject, 'Application Expired — Documents Not Uploaded', `
     <p>Hello Admin,</p>

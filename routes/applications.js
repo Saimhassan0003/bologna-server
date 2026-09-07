@@ -146,7 +146,7 @@ router.post('/', cpUpload, async (req, res) => {
       documentsUploadedCompleted: false,
     });
 
-    console.log(`[MySQL] Successfully saved application for ${computedFullName} with ID ${savedApplication.id}`);
+    
 
     // Build the upload link now that we have the real id
     const uploadLink = `${process.env.CLIENT_URL}/upload-documents/${savedApplication.id}`;
