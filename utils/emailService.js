@@ -162,7 +162,7 @@ const getBaseTemplate = (title, contentHeader, contentBody) => `
   <div class="wrapper">
     <div class="container">
       <div class="header">
-        <h1>UTAMED University</h1>
+        <h1>Student Portal</h1>
         <p>Admissions & Enrollment Hub</p>
       </div>
       <div class="content">
@@ -170,8 +170,8 @@ const getBaseTemplate = (title, contentHeader, contentBody) => `
         ${contentBody}
       </div>
       <div class="footer">
-        <p>&copy; ${new Date().getFullYear()} UTAMED University. All rights reserved.</p>
-        <p>Institute UTAMED Academic Admissions Portal</p>
+        <p>&copy; ${new Date().getFullYear()} Student Portal. All rights reserved.</p>
+        <p>Institute Student Portal Academic Admissions Portal</p>
         <p>Need support? Please email us at <a href="mailto:support@utamed.com">support@utamed.com</a></p>
       </div>
     </div>
@@ -185,8 +185,8 @@ const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').
 // "From" address used for all outgoing emails via Resend.
 // NOTE: Until you verify your own domain on Resend, you MUST use this
 // sandbox address. Once your domain (e.g. utamed.com) is verified on
-// resend.com/domains, change this to e.g. "UTAMED Admissions <admissions@utamed.com>"
-const FROM_ADDRESS = process.env.RESEND_FROM || 'UTAMED Admissions <onboarding@resend.dev>';
+// resend.com/domains, change this to e.g. "Student Portal <admissions@utamed.com>"
+const FROM_ADDRESS = process.env.RESEND_FROM || 'Student Portal <onboarding@resend.dev>';
 
 const sendViaResend = async (resend, mailOptions) => {
   if (resend && process.env.RESEND_API_KEY) {
@@ -217,7 +217,7 @@ const sendViaResend = async (resend, mailOptions) => {
       tls: { rejectUnauthorized: false }
     });
 
-    const fromAddress = mailOptions.from || `UTAMED Admissions <${process.env.EMAIL_USER}>`;
+    const fromAddress = mailOptions.from || `Student Portal <${process.env.EMAIL_USER}>`;
 
     return new Promise((resolve, reject) => {
       transporter.sendMail({
@@ -247,7 +247,7 @@ const sendSubmissionEmails = async (app) => {
   const isPendingDocuments = app.status === 'PendingDocuments';
 
   const userHtml = getBaseTemplate(
-    'Application Submitted — UTAMED University',
+    'Application Submitted — Student Portal',
     isPendingDocuments ? 'Application Received — Documents Required' : 'Application Received Successfully',
     `
     <p>Dear <strong>${app.fullName}</strong>,</p>
@@ -294,7 +294,7 @@ const sendSubmissionEmails = async (app) => {
   );
 
   const adminHtml = getBaseTemplate(
-    'New Application Received — UTAMED University',
+    'New Application Received — Student Portal',
     'New Directory Submission Alert',
     `
     <p>Hello Admin,</p>
@@ -406,7 +406,7 @@ const sendSubmissionEmails = async (app) => {
 
   const userMailOptions = {
     to: app.email,
-    subject: 'Application Received – WTO UTAMED',
+    subject: 'Application Received – Student Portal',
     html: userHtml,
     text: stripHtml(userHtml),
     replyTo: 'support@utamed.com',
@@ -463,7 +463,7 @@ const sendApprovalEmails = async (app) => {
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
 
   const userHtml = getBaseTemplate(
-    'Application Approved — UTAMED University',
+    'Application Approved — Student Portal',
     'Congratulations! Your Application is Approved',
     `
     <p>Dear <strong>${app.fullName}</strong>,</p>
@@ -492,12 +492,12 @@ const sendApprovalEmails = async (app) => {
     </div>
     <p>A representative from the assigned center will contact you shortly with the enrollment schedule, orientation details, and fee payment instructions. You may also contact them directly using the credentials listed above.</p>
     ` : ''}
-    <p>Welcome to UTAMED University. We wish you an exceptional academic journey!</p>
+    <p>Welcome to Student Portal. We wish you an exceptional academic journey!</p>
     `
   );
 
   const adminHtml = getBaseTemplate(
-    'Application Approved — UTAMED University',
+    'Application Approved — Student Portal',
     'Application Approved & Assigned successfully',
     `
     <p>Hello Admin,</p>
@@ -532,7 +532,7 @@ const sendApprovalEmails = async (app) => {
   );
 
   const centerHtml = getBaseTemplate(
-    'New Application Assigned — UTAMED University',
+    'New Application Assigned — Student Portal',
     'New Approved Student Profile Assigned',
     `
     <p>Dear Center Coordinator at <strong>${app.centreName}</strong>,</p>
@@ -578,7 +578,7 @@ const sendApprovalEmails = async (app) => {
     </div>
     
     <p><strong>Action Required:</strong> Please reach out to <strong>${app.fullName}</strong> at your earliest convenience to complete their enrollment files, verify documentation, and process course registrations.</p>
-    <p>Thank you for your continued partnership with UTAMED University.</p>
+    <p>Thank you for your continued partnership with Student Portal.</p>
     `
   );
 
@@ -605,7 +605,7 @@ const sendApprovalEmails = async (app) => {
 
   const adminMailOptions = {
     to: adminEmail,
-    subject: 'Application Approved – UTAMED Admissions',
+    subject: 'Application Approved – Student Portal',
     html: adminHtml,
     text: stripHtml(adminHtml),
     replyTo: 'support@utamed.com',
@@ -627,7 +627,7 @@ const sendApprovalEmails = async (app) => {
   if (app.registrationViaCentre === 'Yes' && app.centreEmail) {
     const centerMailOptions = {
       to: app.centreEmail,
-      subject: 'New Application Assigned – UTAMED Admissions',
+      subject: 'New Application Assigned – Student Portal',
       html: centerHtml,
       text: stripHtml(centerHtml),
       replyTo: 'support@utamed.com',
@@ -664,11 +664,11 @@ const sendRejectionEmail = async (app, reason = '') => {
   console.log(`[RESEND] sendRejectionEmail called for application ID: ${app._id}`);
   
   const userHtml = getBaseTemplate(
-    'Application Status Update — UTAMED University',
+    'Application Status Update — Student Portal',
     'Application Decision Details',
     `
     <p>Dear <strong>${app.fullName}</strong>,</p>
-    <p>Thank you for your interest in WTO UTAMED. We regret to inform you that your application for admission has not been accepted for the upcoming intake.</p>
+    <p>Thank you for your interest in Student Portal. We regret to inform you that your application for admission has not been accepted for the upcoming intake.</p>
     <p>We have attached your formal <strong>Application Rejection Letter</strong> as a PDF to this email for your reference.</p>
     ${reason ? `<p><strong>Reason for rejection:</strong> ${reason}</p>` : ''}
     <p>We wish you all the very best in your future academic endeavors.</p>
@@ -740,7 +740,7 @@ ${missingDocsStr}
 
   const mailOptions = {
     to: app.email,
-    subject: 'Action Required: Document Submission Period Expired – UTAMED Application',
+    subject: 'Action Required: Document Submission Period Expired – Student Portal Application',
     html,
     text: stripHtml(html),
     replyTo: 'support@utamed.com',
@@ -785,7 +785,7 @@ ${missingDocsStr}
 
   const mailOptions = {
     to: adminEmail,
-    subject: 'Application Deadline Expired – UTAMED Application',
+    subject: 'Application Deadline Expired – Student Portal Application',
     html,
     text: stripHtml(html),
     replyTo: 'support@utamed.com',
@@ -843,7 +843,7 @@ const sendDocumentUploadConfirmationEmails = async (app) => {
   const serverUrl = process.env.VITE_API_URL || 'http://localhost:5000';
 
   const userHtml = getBaseTemplate(
-    'Documents Uploaded Successfully — UTAMED University',
+    'Documents Uploaded Successfully — Student Portal',
     'Documents Uploaded Successfully',
     `
     <p>Dear <strong>${app.fullName}</strong>,</p>
@@ -880,7 +880,7 @@ const sendDocumentUploadConfirmationEmails = async (app) => {
   );
 
   const adminHtml = getBaseTemplate(
-    'Updated Documents Received — UTAMED University',
+    'Updated Documents Received — Student Portal',
     'Application Completed — Documents Uploaded',
     `
     <p>Hello Admin,</p>
@@ -923,14 +923,14 @@ const sendDocumentUploadConfirmationEmails = async (app) => {
 
   const userMailOptions = {
     to: app.email,
-    subject: 'Documents Uploaded Successfully - UTAMED Admissions',
+    subject: 'Documents Uploaded Successfully - Student Portal',
     html: userHtml,
     text: stripHtml(userHtml),
   };
 
   const adminMailOptions = {
     to: adminEmail,
-    subject: 'Updated Documents Received - UTAMED Admissions',
+    subject: 'Updated Documents Received - Student Portal',
     html: adminHtml,
     text: stripHtml(adminHtml),
   };
