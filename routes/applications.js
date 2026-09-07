@@ -1,14 +1,15 @@
-const express = require('express');
-const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const Application = require('../models/Application');
+const express        = require('express');
+const router         = express.Router();
+const multer         = require('multer');
+const path           = require('path');
+const Application    = require('../models/Application');
 const authMiddleware = require('../middleware/authMiddleware');
-const emailService = require('../utils/emailService');
-const { logActivity } = require('../utils/logger');
-const crypto = require('crypto');
+const emailService   = require('../utils/emailService');
+const { logActivity }= require('../utils/logger');
+const crypto         = require('crypto');
 
-// Multer Config
+// ─── Multer Config ────────────────────────────────────────────────────────────
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/');
@@ -20,86 +21,26 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
 const cpUpload = upload.fields([
   { name: 'profilePicture', maxCount: 1 },
-  { name: 'passportCopy', maxCount: 1 },
-  { name: 'resume', maxCount: 1 },
-  { name: 'transcript1', maxCount: 1 },
-  { name: 'transcript2', maxCount: 1 },
-  { name: 'transcript3', maxCount: 1 }
+  { name: 'passportCopy',   maxCount: 1 },
+  { name: 'resume',         maxCount: 1 },
+  { name: 'transcript1',    maxCount: 1 },
+  { name: 'transcript2',    maxCount: 1 },
+  { name: 'transcript3',    maxCount: 1 }
 ]);
 
-// Submit a new application (Public)
+// ─── Submit a new application (Public) ───────────────────────────────────────
+
 router.post('/', cpUpload, async (req, res) => {
   try {
-    const { 
+    const {
       firstName,
       lastName,
-      fullName, 
-      certificateName, 
-      dob, 
-      gender, 
-      email, 
-      phone,
-      passportNumber, 
-      country,
-      address,
-      department,
-      programme,
-      courseStartDate,
-      courseEndDate,
-      intake,
-      creditHours,
-      price,
-      registrationViaCentre,
-      centreName,
-      centreEmail,
-      centrePhone,
-      highestQualification
-    } = req.body;
-
-    // Check which documents are provided
-    const profilePicturePath = req.files?.['profilePicture'] ? `/uploads/${req.files['profilePicture'][0].filename}` : '';
-    const passportCopyPath = req.files?.['passportCopy'] ? `/uploads/${req.files['passportCopy'][0].filename}` : '';
-    const resumePath = req.files?.['resume'] ? `/uploads/${req.files['resume'][0].filename}` : '';
-    const transcript1Path = req.files?.['transcript1'] ? `/uploads/${req.files['transcript1'][0].filename}` : '';
-    const transcript2Path = req.files?.['transcript2'] ? `/uploads/${req.files['transcript2'][0].filename}` : '';
-    const transcript3Path = req.files?.['transcript3'] ? `/uploads/${req.files['transcript3'][0].filename}` : '';
-
-    // Track which documents are missing (all 6 need to be uploaded)
-    const missingDocuments = [];
-    if (!profilePicturePath) missingDocuments.push('profilePicture');
-    if (!passportCopyPath) missingDocuments.push('passportCopy');
-    if (!resumePath) missingDocuments.push('resume');
-    if (!transcript1Path) missingDocuments.push('transcript1');
-    if (!transcript2Path) missingDocuments.push('transcript2');
-    if (!transcript3Path) missingDocuments.push('transcript3');
-
-    const computedFullName = fullName || `${firstName || ''} ${lastName || ''}`.trim();
-
-    // Determine status and deadline (2 months when documents missing)
-    let status = 'Submitted'; // All documents uploaded
-    let documentDeadline = null;
-    const submissionDate = new Date();
-
-    if (missingDocuments.length > 0) {
-      status = 'PendingDocuments';
-      const dd = new Date(submissionDate);
-      dd.setMonth(dd.getMonth() + 2); // 2 months from submission
-      documentDeadline = dd;
-    }
-
-    // Generate reference number and unique token for user portal/status link
-    const referenceNumber = `REF-${submissionDate.getTime().toString(36).toUpperCase()}`;
-    const uniqueToken = crypto.randomBytes(12).toString('hex');
-
-    const newApplication = new Application({
-      firstName,
-      lastName,
-      fullName: computedFullName,
+      fullName,
       certificateName,
       dob,
       gender,
@@ -116,35 +57,105 @@ router.post('/', cpUpload, async (req, res) => {
       creditHours,
       price,
       registrationViaCentre,
-      centreName: registrationViaCentre === 'Yes' ? centreName : '',
+      centreName,
+      centreEmail,
+      centrePhone,
+      highestQualification
+    } = req.body;
+
+    // Check for duplicate email
+    if (email) {
+      const existingApp = await Application.findByEmail(email);
+      if (existingApp) {
+        return res.status(400).json({
+          message: 'This email address has already been used for an application. Please use a different email address.'
+        });
+      }
+    }
+
+    const profilePicturePath = req.files?.['profilePicture'] ? `/uploads/${req.files['profilePicture'][0].filename}` : '';
+    const passportCopyPath   = req.files?.['passportCopy']   ? `/uploads/${req.files['passportCopy'][0].filename}`   : '';
+    const resumePath         = req.files?.['resume']         ? `/uploads/${req.files['resume'][0].filename}`         : '';
+    const transcript1Path    = req.files?.['transcript1']    ? `/uploads/${req.files['transcript1'][0].filename}`    : '';
+    const transcript2Path    = req.files?.['transcript2']    ? `/uploads/${req.files['transcript2'][0].filename}`    : '';
+    const transcript3Path    = req.files?.['transcript3']    ? `/uploads/${req.files['transcript3'][0].filename}`    : '';
+
+    // Track missing documents
+    const missingDocuments = [];
+    if (!profilePicturePath) missingDocuments.push('profilePicture');
+    if (!passportCopyPath)   missingDocuments.push('passportCopy');
+    if (!resumePath)         missingDocuments.push('resume');
+    if (!transcript1Path)    missingDocuments.push('transcript1');
+    if (!transcript2Path)    missingDocuments.push('transcript2');
+    if (!transcript3Path)    missingDocuments.push('transcript3');
+
+    const computedFullName = fullName || `${firstName || ''} ${lastName || ''}`.trim();
+
+    let status          = 'Submitted';
+    let documentDeadline = null;
+    const submissionDate = new Date();
+
+    if (missingDocuments.length > 0) {
+      status = 'PendingDocuments';
+      const dd = new Date(submissionDate);
+      dd.setMonth(dd.getMonth() + 2); // 2 months deadline
+      documentDeadline = dd;
+    }
+
+    const referenceNumber = `REF-${submissionDate.getTime().toString(36).toUpperCase()}`;
+    const uniqueToken     = crypto.randomBytes(12).toString('hex');
+
+    // Insert into MySQL — uploadLink is built after we know the new id
+    const savedApplication = await Application.create({
+      firstName,
+      lastName,
+      fullName:             computedFullName,
+      certificateName,
+      dob,
+      gender,
+      email,
+      phone,
+      passportNumber,
+      country,
+      address,
+      department,
+      programme,
+      courseStartDate,
+      courseEndDate,
+      intake,
+      creditHours,
+      price,
+      registrationViaCentre,
+      centreName:  registrationViaCentre === 'Yes' ? centreName  : '',
       centreEmail: registrationViaCentre === 'Yes' ? centreEmail : '',
       centrePhone: registrationViaCentre === 'Yes' ? centrePhone : '',
       highestQualification,
       profilePicture: profilePicturePath,
-      passportCopy: passportCopyPath,
-      resume: resumePath,
-      transcript1: transcript1Path,
-      transcript2: transcript2Path,
-      transcript3: transcript3Path,
+      passportCopy:   passportCopyPath,
+      resume:         resumePath,
+      transcript1:    transcript1Path,
+      transcript2:    transcript2Path,
+      transcript3:    transcript3Path,
       status,
       documentDeadline,
       missingDocuments,
       referenceNumber,
       uniqueToken,
       submissionDate,
-      uploadLink: `${process.env.CLIENT_URL}/upload-documents/`
+      uploadLink: '', // placeholder — set below after we have the id
+      documentsUploadedCompleted: false,
     });
 
-    // Set uploadLink after ID is generated by mongoose (or we can just append _id)
-    newApplication.uploadLink = `${process.env.CLIENT_URL}/upload-documents/${newApplication._id}`;
+    console.log(`[MySQL] Successfully saved application for ${computedFullName} with ID ${savedApplication.id}`);
 
-    const savedApplication = await newApplication.save();
-    console.log(`[MongoDB] Successfully saved application for ${computedFullName} with ID ${savedApplication._id}`);
+    // Build the upload link now that we have the real id
+    const uploadLink = `${process.env.CLIENT_URL}/upload-documents/${savedApplication.id}`;
+    let finalApplication = savedApplication;
 
-    const actionMsg = status === 'Submitted' 
-      ? 'submitted with all documents' 
+    const actionMsg = status === 'Submitted'
+      ? 'submitted with all documents'
       : `submitted with pending documents (${missingDocuments.length} missing)`;
-    
+
     await logActivity(
       'Application Submitted',
       `New application ${actionMsg} by ${computedFullName} for the ${programme} program`,
@@ -152,26 +163,28 @@ router.post('/', cpUpload, async (req, res) => {
       'User'
     );
 
-    // If all documents were included, mark documentSubmittedAt/docsUploadedAt
     if (missingDocuments.length === 0) {
-      savedApplication.documentSubmittedAt = submissionDate;
-      savedApplication.docsUploadedAt = submissionDate;
-      savedApplication.documentsUploadedCompleted = true;
-      savedApplication.uploadLink = '';
-      await savedApplication.save();
+      // All docs provided at once — mark complete
+      finalApplication = await Application.updateById(savedApplication.id, {
+        uploadLink:                 '',
+        documentSubmittedAt:        submissionDate,
+        docsUploadedAt:             submissionDate,
+        documentsUploadedCompleted: true,
+      });
+    } else {
+      finalApplication = await Application.updateById(savedApplication.id, { uploadLink });
     }
 
-    // Dispatch submission confirmation emails concurrently to user & admin
     try {
-      await emailService.sendSubmissionEmails(savedApplication);
+      await emailService.sendSubmissionEmails(finalApplication);
     } catch (mailErr) {
       console.error('[SMTP ERROR] Failed to send submission emails:', mailErr.message);
     }
 
     res.status(201).json({
-      ...savedApplication.toObject(),
-      message: status === 'Submitted' 
-        ? 'Application submitted successfully!' 
+      ...finalApplication,
+      message: status === 'Submitted'
+        ? 'Application submitted successfully!'
         : `Application submitted. Please upload ${missingDocuments.length} remaining document(s) within 2 months.`
     });
   } catch (err) {
@@ -180,10 +193,11 @@ router.post('/', cpUpload, async (req, res) => {
   }
 });
 
-// Get all applications
+// ─── Get all applications (Admin only) ───────────────────────────────────────
+
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const applications = await Application.find().sort({ submissionDate: -1 });
+    const applications = await Application.findAll();
     res.json(applications);
   } catch (err) {
     console.error(err.message);
@@ -191,7 +205,8 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Get a single application by ID (public, for document upload view)
+// ─── Get a single application by ID (public — for document upload view) ──────
+
 router.get('/:id', async (req, res) => {
   try {
     const application = await Application.findById(req.params.id);
@@ -199,16 +214,15 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Application not found' });
     }
 
-    // Block if documents have already been uploaded
     if (application.documentsUploadedCompleted || application.status !== 'PendingDocuments') {
       return res.status(400).json({ message: 'Documents have already been uploaded for this email address. Multiple uploads are not allowed.' });
     }
 
-    // Only return fields necessary for the document upload view
     res.json({
-      _id: application._id,
-      status: application.status,
-      submissionDate: application.submissionDate,
+      _id:              application.id,
+      id:               application.id,
+      status:           application.status,
+      submissionDate:   application.submissionDate,
       documentDeadline: application.documentDeadline,
       missingDocuments: application.missingDocuments
     });
@@ -218,138 +232,152 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Update application status
+// ─── Update application status (Admin only) ───────────────────────────────────
+
 router.patch('/:id/status', authMiddleware, async (req, res) => {
-  const { status } = req.body;
-  
+  const { status, rejectionReason } = req.body;
+
   if (!['Submitted', 'PendingDocuments', 'Reviewed', 'Accepted', 'Rejected'].includes(status)) {
     return res.status(400).json({ message: 'Invalid status value' });
   }
 
   try {
     const application = await Application.findById(req.params.id);
-    
+
     if (!application) {
       return res.status(404).json({ message: 'Application not found' });
     }
 
     const previousStatus = application.status;
-    application.status = status;
-    await application.save();
+
+    const updates = { status };
+    if (status === 'Rejected') {
+      updates.rejectionReason = rejectionReason || '';
+    }
+
+    const updated = await Application.updateById(application.id, updates);
 
     await logActivity(
       'Status Updated',
-      `Application status of ${application.fullName} was changed from "${previousStatus}" to "${status}"`,
+      `Application status of ${updated.fullName} was changed from "${previousStatus}" to "${status}"`,
       'status',
       'Admin'
     );
 
-    // Dispatch approval notifications simultaneously if transitioned to 'Accepted'
-    // and the student registered through an approved center.
     if (status === 'Accepted' && previousStatus !== 'Accepted') {
-      if (application.registrationViaCentre === 'Yes' && application.centreEmail) {
-        try {
-          await emailService.sendApprovalEmails(application);
-        } catch (mailErr) {
-          console.error('[SMTP ERROR] Failed to send approval emails:', mailErr.message);
-        }
+      try {
+        await emailService.sendApprovalEmails(updated);
+      } catch (mailErr) {
+        console.error('[SMTP ERROR] Failed to send approval emails:', mailErr.message);
       }
     }
 
-    res.json(application);
+    if (status === 'Rejected' && previousStatus !== 'Rejected') {
+      try {
+        await emailService.sendRejectionEmail(updated, rejectionReason || '');
+      } catch (mailErr) {
+        console.error('[SMTP ERROR] Failed to send rejection email:', mailErr.message);
+      }
+    }
+
+    res.json(updated);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
   }
 });
 
-// Upload or attach documents to an existing application (public)
+// ─── Upload / attach documents to an existing application (public) ────────────
+
 router.post('/:id/documents', cpUpload, async (req, res) => {
   try {
     const application = await Application.findById(req.params.id);
     if (!application) return res.status(404).json({ message: 'Application not found' });
 
-    // Block if documents have already been uploaded
     if (application.documentsUploadedCompleted || application.status !== 'PendingDocuments') {
       return res.status(400).json({ message: 'Documents have already been uploaded for this email address. Multiple uploads are not allowed.' });
     }
 
-    // If there is a deadline and it has passed, reject
-    if (application.documentDeadline && application.documentDeadline < new Date()) {
+    if (application.documentDeadline && new Date(application.documentDeadline) < new Date()) {
       return res.status(400).json({ message: 'Document upload deadline has expired.' });
     }
 
-    // Map uploaded files to application fields
     const fileMap = req.files || {};
-
-    // Enforce that all currently missing documents must be uploaded in this request
     const missing = application.missingDocuments || [];
+
+    // All currently-missing docs must be uploaded together
     const missingUploads = [];
     if (missing.includes('profilePicture') && !fileMap['profilePicture']) missingUploads.push('profilePicture');
-    if (missing.includes('passportCopy') && !fileMap['passportCopy']) missingUploads.push('passportCopy');
-    if (missing.includes('resume') && !fileMap['resume']) missingUploads.push('resume');
-    if (missing.includes('transcript1') && !fileMap['transcript1']) missingUploads.push('transcript1');
-    if (missing.includes('transcript2') && !fileMap['transcript2']) missingUploads.push('transcript2');
-    if (missing.includes('transcript3') && !fileMap['transcript3']) missingUploads.push('transcript3');
+    if (missing.includes('passportCopy')   && !fileMap['passportCopy'])   missingUploads.push('passportCopy');
+    if (missing.includes('resume')         && !fileMap['resume'])         missingUploads.push('resume');
+    if (missing.includes('transcript1')    && !fileMap['transcript1'])    missingUploads.push('transcript1');
+    if (missing.includes('transcript2')    && !fileMap['transcript2'])    missingUploads.push('transcript2');
+    if (missing.includes('transcript3')    && !fileMap['transcript3'])    missingUploads.push('transcript3');
 
     if (missingUploads.length > 0) {
-      // Clean up uploaded files to prevent disk clutter
       const fs = require('fs');
-      Object.keys(fileMap).forEach(fieldname => {
-        fileMap[fieldname].forEach(file => {
-          try {
-            fs.unlinkSync(file.path);
-          } catch (e) {
-            console.error('Failed to delete uploaded file during clean-up:', e.message);
-          }
+      Object.keys(fileMap).forEach((fieldname) => {
+        fileMap[fieldname].forEach((file) => {
+          try { fs.unlinkSync(file.path); } catch (e) { console.error('Cleanup error:', e.message); }
         });
       });
-
-      return res.status(400).json({ 
-        message: `All missing documents must be uploaded together. Missing: ${missingUploads.join(', ')}` 
+      return res.status(400).json({
+        message: `All missing documents must be uploaded together. Missing: ${missingUploads.join(', ')}`
       });
     }
 
-    if (fileMap['profilePicture']) application.profilePicture = `/uploads/${fileMap['profilePicture'][0].filename}`;
-    if (fileMap['passportCopy']) application.passportCopy = `/uploads/${fileMap['passportCopy'][0].filename}`;
-    if (fileMap['resume']) application.resume = `/uploads/${fileMap['resume'][0].filename}`;
-    if (fileMap['transcript1']) application.transcript1 = `/uploads/${fileMap['transcript1'][0].filename}`;
-    if (fileMap['transcript2']) application.transcript2 = `/uploads/${fileMap['transcript2'][0].filename}`;
-    if (fileMap['transcript3']) application.transcript3 = `/uploads/${fileMap['transcript3'][0].filename}`;
+    // Build update object
+    const updateData = {};
+    if (fileMap['profilePicture']) updateData.profilePicture = `/uploads/${fileMap['profilePicture'][0].filename}`;
+    if (fileMap['passportCopy'])   updateData.passportCopy   = `/uploads/${fileMap['passportCopy'][0].filename}`;
+    if (fileMap['resume'])         updateData.resume         = `/uploads/${fileMap['resume'][0].filename}`;
+    if (fileMap['transcript1'])    updateData.transcript1    = `/uploads/${fileMap['transcript1'][0].filename}`;
+    if (fileMap['transcript2'])    updateData.transcript2    = `/uploads/${fileMap['transcript2'][0].filename}`;
+    if (fileMap['transcript3'])    updateData.transcript3    = `/uploads/${fileMap['transcript3'][0].filename}`;
 
-    // Recompute missingDocuments
+    // Recompute missingDocuments after this upload
+    const currentProfile = updateData.profilePicture || application.profilePicture;
+    const currentPassport = updateData.passportCopy   || application.passportCopy;
+    const currentResume  = updateData.resume          || application.resume;
+    const currentT1      = updateData.transcript1     || application.transcript1;
+    const currentT2      = updateData.transcript2     || application.transcript2;
+    const currentT3      = updateData.transcript3     || application.transcript3;
+
     const newMissing = [];
-    if (!application.profilePicture) newMissing.push('profilePicture');
-    if (!application.passportCopy) newMissing.push('passportCopy');
-    if (!application.resume) newMissing.push('resume');
-    if (!application.transcript1) newMissing.push('transcript1');
-    if (!application.transcript2) newMissing.push('transcript2');
-    if (!application.transcript3) newMissing.push('transcript3');
+    if (!currentProfile) newMissing.push('profilePicture');
+    if (!currentPassport) newMissing.push('passportCopy');
+    if (!currentResume)  newMissing.push('resume');
+    if (!currentT1)      newMissing.push('transcript1');
+    if (!currentT2)      newMissing.push('transcript2');
+    if (!currentT3)      newMissing.push('transcript3');
 
-    application.missingDocuments = newMissing;
+    updateData.missingDocuments = newMissing;
 
     if (newMissing.length === 0) {
-      application.status = 'Submitted';
-      application.documentDeadline = null;
-      application.documentSubmittedAt = new Date();
-      application.docsUploadedAt = new Date();
-      application.documentsUploadedCompleted = true;
-      application.uploadLink = '';
+      updateData.status                     = 'Submitted';
+      updateData.documentDeadline           = null;
+      updateData.documentSubmittedAt        = new Date();
+      updateData.docsUploadedAt             = new Date();
+      updateData.documentsUploadedCompleted = true;
+      updateData.uploadLink                 = '';
     } else {
-      application.status = 'PendingDocuments';
-      // keep existing deadline if present, otherwise set one to 2 months from submission
+      updateData.status = 'PendingDocuments';
       if (!application.documentDeadline) {
         const d = new Date(application.submissionDate || Date.now());
         d.setMonth(d.getMonth() + 2);
-        application.documentDeadline = d;
+        updateData.documentDeadline = d;
       }
     }
 
-    const updated = await application.save();
+    const updated = await Application.updateById(application.id, updateData);
 
-    await logActivity('Documents Uploaded', `Documents uploaded for application ${updated._id} by ${updated.fullName}`, 'application', 'User');
+    await logActivity(
+      'Documents Uploaded',
+      `Documents uploaded for application ${updated.id} by ${updated.fullName}`,
+      'application',
+      'User'
+    );
 
-    // Notify via email about updated submission state
     try {
       if (updated.documentsUploadedCompleted) {
         await emailService.sendDocumentUploadConfirmationEmails(updated);
@@ -360,7 +388,12 @@ router.post('/:id/documents', cpUpload, async (req, res) => {
       console.error('[SMTP ERROR] Failed to send document-update emails:', mailErr.message);
     }
 
-    res.json({ application: updated, message: missing.length === 0 ? 'All documents uploaded. Application complete.' : `Documents attached. ${missing.length} document(s) still pending.` });
+    res.json({
+      application: updated,
+      message: missing.length === 0
+        ? 'All documents uploaded. Application complete.'
+        : `Documents attached. ${missing.length} document(s) still pending.`
+    });
   } catch (err) {
     console.error('Attach documents error', err.message);
     res.status(500).json({ message: 'Server error while attaching documents' });

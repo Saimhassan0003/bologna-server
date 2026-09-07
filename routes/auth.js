@@ -1,8 +1,8 @@
 const express = require('express');
-const router = express.Router();
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const Admin = require('../models/Admin');
+const router  = express.Router();
+const bcrypt  = require('bcrypt');
+const jwt     = require('jsonwebtoken');
+const Admin   = require('../models/Admin');
 
 router.post('/login', async (req, res) => {
   console.log('===LOGIN ENDPOINT CALLED===');
@@ -10,16 +10,16 @@ router.post('/login', async (req, res) => {
   console.log('Login attempt:', { email, jwtSecretExists: !!process.env.JWT_SECRET });
 
   try {
-    const admin = await Admin.findOne({ email });
+    const admin = await Admin.findByEmail(email);
     console.log('Admin found:', !!admin);
-    
+
     if (!admin) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     const isMatch = await bcrypt.compare(password, admin.password);
     console.log('Password match:', isMatch);
-    
+
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }

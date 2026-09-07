@@ -1,13 +1,13 @@
-const cron   = require('node-cron');
-const PostalRequest     = require('../models/PostalRequest');
-const Application       = require('../models/Application');
+const cron               = require('node-cron');
+const PostalRequest      = require('../models/PostalRequest');
+const Application        = require('../models/Application');
 const postalEmailService = require('../utils/postalEmailService');
-const emailService = require('../utils/emailService');
+const emailService       = require('../utils/emailService');
 
 /**
  * Expiration Job
- * Runs every minute to find DOCUMENT_PENDING applications whose deadline
- * has passed and transition them to EXPIRED.
+ * Runs every minute to find DOCUMENT_PENDING applications/postal-requests
+ * whose deadline has passed and transition them to EXPIRED.
  */
 const startExpirationJob = () => {
   cron.schedule('* * * * *', async () => {
@@ -15,30 +15,29 @@ const startExpirationJob = () => {
     try {
       const now = new Date();
 
-      // ─── Check PostalRequests ──────────────────────────────────────────
-      const expiredPostal = await PostalRequest.find({
-        status:           'DOCUMENT_PENDING',
-        documentDeadline: { $lt: now }
-      });
+      // ─── Check PostalRequests ──────────────────────────────────────────────
+      const expiredPostal = await PostalRequest.findExpired();
 
       if (expiredPostal.length > 0) {
         console.log(`[CRON] Found ${expiredPostal.length} expired postal request(s).`);
 
         for (const req of expiredPostal) {
-          req.status    = 'EXPIRED';
-          req.expiredAt = now;
-          await req.save();
+          await PostalRequest.updateById(req.id, {
+            status:    'EXPIRED',
+            expiredAt: now
+          });
 
           console.log(`[CRON] ⏰ Postal Expired: ${req.applicationNumber} (student: ${req.studentId})`);
 
           if (!req.expiryEmailSent) {
             try {
+              // Refresh object so emails have the latest status
+              const refreshed = await PostalRequest.findById(req.id);
               await Promise.all([
-                postalEmailService.notifyAdminExpired(req, req.studentId),
-                postalEmailService.notifyStudentExpired(req, req.studentId)
+                postalEmailService.notifyAdminExpired(refreshed, refreshed.studentId),
+                postalEmailService.notifyStudentExpired(refreshed, refreshed.studentId)
               ]);
-              req.expiryEmailSent = true;
-              await req.save();
+              await PostalRequest.updateById(req.id, { expiryEmailSent: true });
               console.log(`[CRON] ✅ Postal expiry emails sent for ${req.applicationNumber}`);
             } catch (mailErr) {
               console.error(`[CRON] ❌ Postal expiry emails failed for ${req.applicationNumber}:`, mailErr.message);
@@ -47,30 +46,28 @@ const startExpirationJob = () => {
         }
       }
 
-      // ─── Check Applications ────────────────────────────────────────────
-      const expiredApps = await Application.find({
-        status:           'PendingDocuments',
-        documentDeadline: { $lt: now }
-      });
+      // ─── Check Applications ────────────────────────────────────────────────
+      const expiredApps = await Application.findExpired();
 
       if (expiredApps.length > 0) {
         console.log(`[CRON] Found ${expiredApps.length} expired application(s).`);
 
         for (const app of expiredApps) {
-          app.status    = 'Rejected'; // Mark as rejected due to expired deadline
-          app.expiredAt = now;
-          await app.save();
+          await Application.updateById(app.id, {
+            status:    'Rejected',
+            expiredAt: now
+          });
 
-          console.log(`[CRON] ⏰ Application Expired: ${app._id} (email: ${app.email})`);
+          console.log(`[CRON] ⏰ Application Expired: ${app.id} (email: ${app.email})`);
 
           if (!app.expiryEmailSent) {
             try {
+              const refreshed = await Application.findById(app.id);
               await Promise.all([
-                emailService.notifyAdminApplicationExpired(app),
-                emailService.notifyStudentApplicationExpired(app)
+                emailService.notifyAdminApplicationExpired(refreshed),
+                emailService.notifyStudentApplicationExpired(refreshed)
               ]);
-              app.expiryEmailSent = true;
-              await app.save();
+              await Application.updateById(app.id, { expiryEmailSent: true });
               console.log(`[CRON] ✅ Application expiry emails sent for ${app.email}`);
             } catch (mailErr) {
               console.error(`[CRON] ❌ Application expiry emails failed for ${app.email}:`, mailErr.message);

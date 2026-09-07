@@ -6,9 +6,9 @@ try { dns.setServers(['8.8.8.8', '1.1.1.1']); } catch (e) {}
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
-const CONN_URI = 'mongodb://saim_db_user:saim0000@ac-pjtqp2z-shard-00-01.nmhhepz.mongodb.net:27017/bologna?ssl=true&authSource=admin';
+const CONN_URI = process.env.DB_URI || 'mongodb://saim_db_user:saim0000@ac-pjtqp2z-shard-00-01.nmhhepz.mongodb.net:27017/bologna?ssl=true&authSource=admin';
 
-console.log('Connecting via direct shard URI...');
+console.log('Connecting to database...');
 
 const Admin = mongoose.model('Admin', new mongoose.Schema({
   email: String,
@@ -20,22 +20,27 @@ const run = async () => {
     await mongoose.connect(CONN_URI, { serverSelectionTimeoutMS: 30000 });
     console.log('✅ Connected to MongoDB');
 
-    // List all admins
+    // List all admins before update
     const admins = await Admin.find({});
     console.log('Current admins in DB:', admins.map(a => a.email));
 
-    // Update or create the admin and reset their password
+    // Update the admin credentials (change email and password)
+    const newEmail = 'admissions@wto.utamed.university';
+    const newPassword = 'Utamed@2026$$';
+
     const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash('password123', salt);
+    const hash = await bcrypt.hash(newPassword, salt);
+
+    // If there is an existing admin, update it. If not, upsert it.
     const result = await Admin.updateOne(
-      { email: 'admin@UTAMED.com' },
-      { $set: { password: hash } },
+      {}, // matches the first admin record (or you can match by existing admin@UTAMED.com)
+      { $set: { email: newEmail, password: hash } },
       { upsert: true }
     );
-    console.log('✅ Admin password has been updated/reset to password123');
+    console.log(`✅ Admin login updated. Email set to: "${newEmail}"`);
 
     const updated = await Admin.find({});
-    console.log('Updated admins:', updated.map(a => a.email));
+    console.log('Updated admins in DB:', updated.map(a => a.email));
 
   } catch (err) {
     console.error('❌ Error:', err.message);

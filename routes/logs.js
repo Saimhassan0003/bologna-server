@@ -1,14 +1,13 @@
-const express = require('express');
-const router = express.Router();
-const ActivityLog = require('../models/ActivityLog');
+const express        = require('express');
+const router         = express.Router();
+const ActivityLog    = require('../models/ActivityLog');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// Get recent activity logs (Protected Admin Route)
+// ─── GET recent activity logs (Protected Admin Route) ─────────────────────────
+
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const logs = await ActivityLog.find()
-      .sort({ timestamp: -1 })
-      .limit(100);
+    const logs = await ActivityLog.findRecent(100);
     res.json(logs);
   } catch (err) {
     console.error(err.message);
@@ -16,10 +15,11 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Clear all activity logs (Protected Admin Route)
+// ─── DELETE all activity logs (Protected Admin Route) ─────────────────────────
+
 router.delete('/', authMiddleware, async (req, res) => {
   try {
-    await ActivityLog.deleteMany({});
+    await ActivityLog.deleteAll();
     res.json({ message: 'All activity logs cleared.' });
   } catch (err) {
     console.error(err.message);

@@ -1,7 +1,13 @@
 const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
+const path = require('path');
+const fs = require('fs');
+const pdfGenerator = require('./pdfGenerator');
 
-// Resend client factory — credentials read at send-time so dotenv is always loaded first
-const getResendClient = () => new Resend(process.env.RESEND_API_KEY);
+const getResendClient = () => {
+  if (!process.env.RESEND_API_KEY) return null;
+  return new Resend(process.env.RESEND_API_KEY);
+};
 
 // Helper for professional email container CSS/HTML
 const getBaseTemplate = (title, contentHeader, contentBody) => `
@@ -182,29 +188,58 @@ const stripHtml = (html) => html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').
 // resend.com/domains, change this to e.g. "UTAMED Admissions <admissions@utamed.com>"
 const FROM_ADDRESS = process.env.RESEND_FROM || 'UTAMED Admissions <onboarding@resend.dev>';
 
-/**
- * Sends a single email via Resend and throws on failure (mirrors old nodemailer behavior)
- */
 const sendViaResend = async (resend, mailOptions) => {
-  const { data, error } = await resend.emails.send({
-    from: mailOptions.from || FROM_ADDRESS,
-    to: mailOptions.to,
-    subject: mailOptions.subject,
-    html: mailOptions.html,
-    text: mailOptions.text,
-    reply_to: mailOptions.replyTo,
-  });
+  if (resend && process.env.RESEND_API_KEY) {
+    const { data, error } = await resend.emails.send({
+      from: mailOptions.from || FROM_ADDRESS,
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      html: mailOptions.html,
+      text: mailOptions.text,
+      reply_to: mailOptions.replyTo,
+      attachments: mailOptions.attachments,
+    });
 
-  if (error) {
-    throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
+    if (error) {
+      throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
+    }
+    return data;
+  } else {
+    // Fallback to SMTP nodemailer
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      },
+      tls: { rejectUnauthorized: false }
+    });
+
+    const fromAddress = mailOptions.from || `UTAMED Admissions <${process.env.EMAIL_USER}>`;
+
+    return new Promise((resolve, reject) => {
+      transporter.sendMail({
+        from: fromAddress,
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+        text: mailOptions.text,
+        replyTo: mailOptions.replyTo,
+        attachments: mailOptions.attachments,
+      }, (err, info) => {
+        if (err) {
+          console.error(`[SMTP ERROR] Failed to send email to ${mailOptions.to}:`, err.message);
+          return reject(err);
+        }
+        console.log(`[SMTP SUCCESS] Sent email to ${mailOptions.to}`);
+        resolve(info);
+      });
+    });
   }
-  return data;
 };
 
-/**
- * 1 & 2. Send emails upon Application Submission
- * Both emails send concurrently.
- */
 const sendSubmissionEmails = async (app) => {
   console.log(`[RESEND] sendSubmissionEmails called for application ID: ${app._id}`);
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
@@ -227,6 +262,7 @@ const sendSubmissionEmails = async (app) => {
       ` : ''}
     <p>Thank you for submitting your application to the <strong>${app.programme}</strong> program within the <strong>${app.department}</strong> department.</p>
     <p>We are pleased to inform you that your application has been successfully submitted and is currently <strong>under review</strong> by our Registry Office evaluation committee.</p>
+    <p>A professionally designed PDF detailing your submission is attached to this email for your records.</p>
     <div class="divider"></div>
     <p>Here are your submission details for your records:</p>
     <div class="table-container">
@@ -262,7 +298,7 @@ const sendSubmissionEmails = async (app) => {
     'New Directory Submission Alert',
     `
     <p>Hello Admin,</p>
-    <p>A new student application has been submitted to the directory. Please review the submitted details below:</p>
+    <p>A new student application has been submitted to the directory. Please review the submitted details below (a detailed confirmation PDF is also attached to this email):</p>
     <div class="divider"></div>
     <h3 style="color: #0f172a; margin-bottom: 12px; font-size: 16px;">Action Required</h3>
     <p><strong>Document Upload Link:</strong> <a href="${app.uploadLink}">${app.uploadLink}</a></p>
@@ -358,20 +394,42 @@ const sendSubmissionEmails = async (app) => {
     `
   );
 
+  const uploadsDir = path.join(__dirname, '../uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+  }
+  const studentPdfPath = path.join(uploadsDir, `Submission_${app._id}_student.pdf`);
+  const adminPdfPath = path.join(uploadsDir, `Submission_${app._id}_admin.pdf`);
+
+  await pdfGenerator.generateStudentSubmissionPDF(app, studentPdfPath);
+  await pdfGenerator.generateAdminSubmissionPDF(app, adminPdfPath);
+
   const userMailOptions = {
     to: app.email,
-    subject: isPendingDocuments ? 'Action Required: Upload Your Documents – UTAMED Admissions' : 'Application Submitted – UTAMED Admissions',
+    subject: 'Application Received – WTO UTAMED',
     html: userHtml,
     text: stripHtml(userHtml),
     replyTo: 'support@utamed.com',
+    attachments: [
+      {
+        filename: 'On Submission of Application form to the student.pdf',
+        path: studentPdfPath
+      }
+    ]
   };
 
   const adminMailOptions = {
     to: adminEmail,
-    subject: 'New Application Received – UTAMED Admissions',
+    subject: 'New Admission Application Received',
     html: adminHtml,
     text: stripHtml(adminHtml),
     replyTo: 'support@utamed.com',
+    attachments: [
+      {
+        filename: 'On Submission of Application form to Admin.pdf',
+        path: adminPdfPath
+      }
+    ]
   };
 
   console.log(`[RESEND] Sending submission emails concurrently to user (${app.email}) and admin (${adminEmail})...`);
@@ -387,6 +445,13 @@ const sendSubmissionEmails = async (app) => {
   } catch (err) {
     console.error('[RESEND ERROR] Failed to send submission emails:', err.message);
     throw err;
+  } finally {
+    if (fs.existsSync(studentPdfPath)) {
+      try { fs.unlinkSync(studentPdfPath); } catch (e) {}
+    }
+    if (fs.existsSync(adminPdfPath)) {
+      try { fs.unlinkSync(adminPdfPath); } catch (e) {}
+    }
   }
 };
 
@@ -404,9 +469,10 @@ const sendApprovalEmails = async (app) => {
     <p>Dear <strong>${app.fullName}</strong>,</p>
     <p>We are absolutely thrilled to congratulate you! Your application for the <strong>${app.programme}</strong> program has been officially **Approved**.</p>
     <p>Your academic profile met our high standards of quality, and we are excited to welcome you into our community.</p>
+    <p>Please find attached your official <strong>Admission Letter PDF</strong> containing your student ID, portal credentials, and enrollment details.</p>
     
+    ${app.registrationViaCentre === 'Yes' ? `
     <div class="divider"></div>
-    
     <p>Since your registration is processed through our regional partner network, your profile has been assigned to the following authorized center for final onboarding and local support:</p>
     <div class="table-container">
       <table class="detail-table">
@@ -424,8 +490,8 @@ const sendApprovalEmails = async (app) => {
         </tr>
       </table>
     </div>
-    
     <p>A representative from the assigned center will contact you shortly with the enrollment schedule, orientation details, and fee payment instructions. You may also contact them directly using the credentials listed above.</p>
+    ` : ''}
     <p>Welcome to UTAMED University. We wish you an exceptional academic journey!</p>
     `
   );
@@ -437,6 +503,7 @@ const sendApprovalEmails = async (app) => {
     <p>Hello Admin,</p>
     <p>This is to confirm that the application for <strong>${app.fullName}</strong> (ID: ${app._id}) has been successfully approved.</p>
     <p>The student profile has been automatically assigned to **${app.centreName || 'the approved center'}**.</p>
+    <p>A detailed Admission Letter PDF is attached to this email.</p>
     
     <div class="divider"></div>
     
@@ -448,11 +515,11 @@ const sendApprovalEmails = async (app) => {
         </tr>
         <tr>
           <th>Assigned Centre</th>
-          <td>${app.centreName}</td>
+          <td>${app.centreName || 'N/A'}</td>
         </tr>
         <tr>
           <th>Centre Coordinator Email</th>
-          <td>${app.centreEmail}</td>
+          <td>${app.centreEmail || 'N/A'}</td>
         </tr>
         <tr>
           <th>Status</th>
@@ -469,7 +536,7 @@ const sendApprovalEmails = async (app) => {
     'New Approved Student Profile Assigned',
     `
     <p>Dear Center Coordinator at <strong>${app.centreName}</strong>,</p>
-    <p>We are writing to inform you that a new approved applicant has been assigned to your authorized center. Please review the student's profile information below to initiate final onboarding, schedule orientation, and collect local credentials:</p>
+    <p>We are writing to inform you that a new approved applicant has been assigned to your authorized center. Please review the student's profile information below to initiate final onboarding, schedule orientation, and collect local credentials (the student's official Admission Letter PDF is also attached to this email):</p>
     
     <div class="divider"></div>
     
@@ -515,12 +582,25 @@ const sendApprovalEmails = async (app) => {
     `
   );
 
+  const uploadsDir = path.join(__dirname, '../uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+  }
+  const admissionLetterPath = path.join(uploadsDir, `Admission_Letter_${app._id}.pdf`);
+  await pdfGenerator.generateAdmissionLetterPDF(app, admissionLetterPath);
+
   const userMailOptions = {
     to: app.email,
-    subject: 'Application Approved – UTAMED Admissions',
+    subject: 'Congratulations! Your Admission Has Been Approved',
     html: userHtml,
     text: stripHtml(userHtml),
     replyTo: 'support@utamed.com',
+    attachments: [
+      {
+        filename: 'Admission letter.pdf',
+        path: admissionLetterPath
+      }
+    ]
   };
 
   const adminMailOptions = {
@@ -529,30 +609,105 @@ const sendApprovalEmails = async (app) => {
     html: adminHtml,
     text: stripHtml(adminHtml),
     replyTo: 'support@utamed.com',
+    attachments: [
+      {
+        filename: 'Admission letter.pdf',
+        path: admissionLetterPath
+      }
+    ]
   };
-
-  const centerMailOptions = {
-    to: app.centreEmail,
-    subject: 'New Application Assigned – UTAMED Admissions',
-    html: centerHtml,
-    text: stripHtml(centerHtml),
-    replyTo: 'support@utamed.com',
-  };
-
-  console.log(`[RESEND] Sending approval emails concurrently to User (${app.email}), Admin (${adminEmail}), and Centre (${app.centreEmail})...`);
 
   const resend = getResendClient();
+
+  const emailsToSend = [
+    sendViaResend(resend, userMailOptions),
+    sendViaResend(resend, adminMailOptions)
+  ];
+
+  if (app.registrationViaCentre === 'Yes' && app.centreEmail) {
+    const centerMailOptions = {
+      to: app.centreEmail,
+      subject: 'New Application Assigned – UTAMED Admissions',
+      html: centerHtml,
+      text: stripHtml(centerHtml),
+      replyTo: 'support@utamed.com',
+      attachments: [
+        {
+          filename: 'Admission letter.pdf',
+          path: admissionLetterPath
+        }
+      ]
+    };
+    emailsToSend.push(sendViaResend(resend, centerMailOptions));
+  }
+
+  console.log(`[RESEND] Sending approval emails to User (${app.email}), Admin (${adminEmail})${app.registrationViaCentre === 'Yes' ? `, and Centre (${app.centreEmail})` : ''}...`);
+
   try {
-    await Promise.all([
-      sendViaResend(resend, userMailOptions),
-      sendViaResend(resend, adminMailOptions),
-      sendViaResend(resend, centerMailOptions)
-    ]);
-    console.log('[RESEND] All 3 approval and assignment notifications delivered successfully.');
+    await Promise.all(emailsToSend);
+    console.log('[RESEND] Approval notifications delivered successfully.');
     return { success: true };
   } catch (err) {
     console.error('[RESEND ERROR] Failed to send approval emails:', err.message);
     throw err;
+  } finally {
+    if (fs.existsSync(admissionLetterPath)) {
+      try { fs.unlinkSync(admissionLetterPath); } catch (e) {}
+    }
+  }
+};
+
+/**
+ * Send email upon Application Rejection
+ */
+const sendRejectionEmail = async (app, reason = '') => {
+  console.log(`[RESEND] sendRejectionEmail called for application ID: ${app._id}`);
+  
+  const userHtml = getBaseTemplate(
+    'Application Status Update — UTAMED University',
+    'Application Decision Details',
+    `
+    <p>Dear <strong>${app.fullName}</strong>,</p>
+    <p>Thank you for your interest in WTO UTAMED. We regret to inform you that your application for admission has not been accepted for the upcoming intake.</p>
+    <p>We have attached your formal <strong>Application Rejection Letter</strong> as a PDF to this email for your reference.</p>
+    ${reason ? `<p><strong>Reason for rejection:</strong> ${reason}</p>` : ''}
+    <p>We wish you all the very best in your future academic endeavors.</p>
+    `
+  );
+
+  const uploadsDir = path.join(__dirname, '../uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+  }
+  const rejectionLetterPath = path.join(uploadsDir, `Rejection_Letter_${app._id}.pdf`);
+  await pdfGenerator.generateRejectionLetterPDF(app, rejectionLetterPath, reason);
+
+  const userMailOptions = {
+    to: app.email,
+    subject: 'Application Status Update',
+    html: userHtml,
+    text: stripHtml(userHtml),
+    replyTo: 'support@utamed.com',
+    attachments: [
+      {
+        filename: 'Application Rejection.pdf',
+        path: rejectionLetterPath
+      }
+    ]
+  };
+
+  const resend = getResendClient();
+  try {
+    await sendViaResend(resend, userMailOptions);
+    console.log('[RESEND] Rejection email successfully delivered.');
+    return { success: true };
+  } catch (err) {
+    console.error('[RESEND ERROR] Failed to send rejection email:', err.message);
+    throw err;
+  } finally {
+    if (fs.existsSync(rejectionLetterPath)) {
+      try { fs.unlinkSync(rejectionLetterPath); } catch (e) {}
+    }
   }
 };
 
@@ -626,8 +781,10 @@ ${missingDocsStr}
     `
   );
 
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@utamed.com';
+
   const mailOptions = {
-    to: 'saimhassantariq0003@gmail.com',
+    to: adminEmail,
     subject: 'Application Deadline Expired – UTAMED Application',
     html,
     text: stripHtml(html),
@@ -646,15 +803,35 @@ ${missingDocsStr}
 
 /**
  * Kept for compatibility with existing call sites (e.g. server startup logs).
- * Resend uses HTTPS API calls, not a persistent SMTP connection, so there is
- * nothing to "verify" ahead of time — we just confirm the API key is present.
+ * If RESEND_API_KEY is set, verifies Resend. Otherwise, verifies Gmail SMTP via nodemailer.
  */
 const verifySMTPConnection = async () => {
-  if (!process.env.RESEND_API_KEY) {
-    console.error('[RESEND ERROR] RESEND_API_KEY is missing from environment variables.');
+  if (process.env.RESEND_API_KEY) {
+    console.log('[RESEND] API key detected. Ready to send emails via Resend.');
     return;
   }
-  console.log('[RESEND] API key detected. Ready to send emails via Resend.');
+
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    console.log('[SMTP] SMTP credentials detected. Verifying SMTP connection...');
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      },
+      tls: { rejectUnauthorized: false }
+    });
+    try {
+      await transporter.verify();
+      console.log('[SMTP] Connection verified successfully. Ready to send emails.');
+    } catch (err) {
+      console.error('[SMTP ERROR] SMTP connection verification failed:', err.message);
+    }
+  } else {
+    console.error('[EMAIL SERVICE ERROR] Neither RESEND_API_KEY nor SMTP credentials (EMAIL_USER/EMAIL_PASS) are configured.');
+  }
 };
 
 /**
@@ -777,6 +954,7 @@ const sendDocumentUploadConfirmationEmails = async (app) => {
 module.exports = {
   sendSubmissionEmails,
   sendApprovalEmails,
+  sendRejectionEmail,
   notifyStudentApplicationExpired,
   notifyAdminApplicationExpired,
   sendDocumentUploadConfirmationEmails,

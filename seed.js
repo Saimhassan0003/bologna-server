@@ -1,121 +1,95 @@
+/**
+ * seed.js — Seeds the MySQL database with:
+ *   1. A default admin account
+ *   2. Default academic options (departments, programmes, intakes)
+ *
+ * Usage:  node seed.js
+ *
+ * Set the admin password via environment variable SEED_ADMIN_PASSWORD
+ * (defaults to "admin123" — CHANGE THIS before deploying to production).
+ */
 require('dotenv').config();
-const dns = require('dns');
-dns.setDefaultResultOrder('ipv4first');
-try {
-  dns.setServers(['8.8.8.8', '1.1.1.1']);
-} catch (e) {
-  console.warn('Could not set custom DNS servers:', e.message);
-}
-const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
-const Admin = require('./models/Admin');
-const Application = require('./models/Application');
+const db     = require('./config/db');
 
-const customLookup = (hostname, options, callback) => {
-  if (typeof options === 'function') {
-    callback = options;
-    options = {};
-  }
-  dns.resolve4(hostname, (err, addresses) => {
-    if (err) {
-      return dns.lookup(hostname, options, callback);
-    }
-    if (addresses && addresses.length > 0) {
-      return callback(null, addresses[0], 4);
-    }
-    dns.lookup(hostname, options, callback);
-  });
-};
+const ADMIN_EMAIL    = process.env.SEED_ADMIN_EMAIL    || 'admissions@wto.utamed.university';
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'Utamed@2026$$';
 
-const seedDB = async () => {
+const defaultDepartments = ['Bachelor', 'Master', 'Doctorate'];
+
+const defaultProgrammes = [
+  { department: 'Bachelor', programme: 'Bachelor in Education',                                   creditHours: '120 ECTS', price: '3,000 EUR', courseStartDate: '1 January 2027', courseEndDate: '1 July 2028' },
+  { department: 'Bachelor', programme: "Bachelor's degree in Event and Hospitality Management",   creditHours: '180 ECTS', price: '3,000 EUR', courseStartDate: '1 July 2026',    courseEndDate: '1 July 2027' },
+  { department: 'Master',   programme: 'Master of continuing Education in Public Administration', creditHours: '90 ECTS',  price: '4,000 EUR', courseStartDate: '1 July 2026',    courseEndDate: '1 July 2027' },
+];
+
+const defaultIntakes = [
+  { department: 'Bachelor', programme: 'Bachelor in Education',                                   intake: 'January 2026 - July 2026' },
+  { department: 'Bachelor', programme: "Bachelor's degree in Event and Hospitality Management",   intake: 'February 2026 - August 2026' },
+  { department: 'Master',   programme: 'Master of continuing Education in Public Administration', intake: 'March 2026 - September 2026' },
+];
+
+const seed = async () => {
+  console.log('🌱 Starting database seed...\n');
+
   try {
-    await mongoose.connect(process.env.DB_URI, { lookup: customLookup });
-    console.log('Connected to MongoDB for seeding...');
+    // 1. Hash admin password
+    const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
 
-    // Clear existing data
-    await Admin.deleteMany({});
-    await Application.deleteMany({});
+    // 2. Insert / update admin account
+    await db.execute(
+      `INSERT INTO admins (email, password)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE password = VALUES(password)`,
+      [ADMIN_EMAIL, passwordHash]
+    );
+    console.log(`✅ Admin account seeded: ${ADMIN_EMAIL}`);
 
-    // Seed Admin
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash('password123', salt);
-    const admin = new Admin({
-      email: 'admin@UTAMED.com',
-      password: hashedPassword
-    });
-    await admin.save();
-    console.log('Admin seeded (admin@UTAMED.com / password123)');
+    // 3. Seed departments
+    for (const name of defaultDepartments) {
+      await db.execute(
+        'INSERT IGNORE INTO academic_departments (name) VALUES (?)',
+        [name]
+      );
+    }
+    console.log(`✅ Departments seeded: ${defaultDepartments.join(', ')}`);
 
-    // Seed Applications with full Academic + Personal details
-    const applications = [
-      {
-        firstName: 'Yael',
-        lastName: 'Kent',
-        fullName: 'Yael Kent',
-        certificateName: 'Xerxes Santiago',
-        dob: new Date('1998-05-15'),
-        gender: 'Female',
-        email: 'bokiqoxip@mailinator.com',
-        phone: '+1 (716) 497-1252',
-        passportNumber: '445',
-        country: 'Provident necessita',
-        address: 'Et eu nostrud commod',
-        department: 'Level 5 Higher Diploma',
-        programme: 'Executive Diploma in Marketing',
-        intake: 'January 2026 - July 2026',
-        creditHours: '120',
-        price: '3000 EUR',
-        registrationViaCentre: 'Yes',
-        centreEmail: 'centre1@unibo-approved.it',
-        centrePhone: '+39 051 209 1111',
-        highestQualification: 'Bachelor of Science in CS',
-        profilePicture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-        passportCopy: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?auto=format&fit=crop&q=80&w=600',
-        resume: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&q=80&w=600',
-        transcript1: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?auto=format&fit=crop&q=80&w=600',
-        transcript2: '',
-        transcript3: '',
-        status: 'Pending'
-      },
-      {
-        firstName: 'Mario',
-        lastName: 'Rossi',
-        fullName: 'Mario Rossi',
-        certificateName: 'Mario Rossi Certificate',
-        dob: new Date('1996-12-01'),
-        gender: 'Male',
-        email: 'mario.rossi@studio.unibo.it',
-        phone: '+39 333 1234567',
-        passportNumber: 'MR7654321',
-        country: 'Italy',
-        address: 'Via dell\'Indipendenza, 12, UTAMED',
-        department: 'Level 7 Post Graduate Diploma',
-        programme: 'Executive Diploma in Marketing Management',
-        intake: 'February 2026 - August 2026',
-        creditHours: '180',
-        price: '2200 EUR',
-        registrationViaCentre: 'No',
-        centreEmail: '',
-        centrePhone: '',
-        highestQualification: 'High School Diploma',
-        profilePicture: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
-        passportCopy: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?auto=format&fit=crop&q=80&w=600',
-        resume: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&q=80&w=600',
-        transcript1: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?auto=format&fit=crop&q=80&w=600',
-        transcript2: '',
-        transcript3: '',
-        status: 'Reviewed'
-      }
-    ];
+    // 4. Seed programmes
+    for (const p of defaultProgrammes) {
+      await db.execute(
+        `INSERT INTO academic_programmes (department, programme, credit_hours, price, course_start_date, course_end_date)
+         VALUES (?,?,?,?,?,?)
+         ON DUPLICATE KEY UPDATE
+           credit_hours      = VALUES(credit_hours),
+           price             = VALUES(price),
+           course_start_date = VALUES(course_start_date),
+           course_end_date   = VALUES(course_end_date)`,
+        [p.department, p.programme, p.creditHours, p.price, p.courseStartDate, p.courseEndDate]
+      );
+    }
+    console.log(`✅ Programmes seeded: ${defaultProgrammes.length} records`);
 
-    await Application.insertMany(applications);
-    console.log('Sample applications seeded successfully');
+    // 5. Seed intakes
+    for (const i of defaultIntakes) {
+      await db.execute(
+        `INSERT IGNORE INTO academic_intakes (department, programme, intake)
+         VALUES (?,?,?)`,
+        [i.department, i.programme, i.intake]
+      );
+    }
+    console.log(`✅ Intakes seeded: ${defaultIntakes.length} records`);
 
-    mongoose.connection.close();
+    console.log('\n🎉 Seed complete!\n');
+    console.log(`   Admin email   : ${ADMIN_EMAIL}`);
+    console.log(`   Admin password: ${ADMIN_PASSWORD}`);
+    console.log('\n   ⚠️  Change the admin password after first login!\n');
+
   } catch (err) {
-    console.error('Seeding error:', err);
-    process.exit(1);
+    console.error('❌ Seed failed:', err.message);
+    console.error(err.stack);
+  } finally {
+    process.exit(0);
   }
 };
 
-seedDB();
+seed();

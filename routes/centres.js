@@ -1,13 +1,14 @@
-const express = require('express');
-const router = express.Router();
-const Centre = require('../models/Centre');
+const express        = require('express');
+const router         = express.Router();
+const Centre         = require('../models/Centre');
 const authMiddleware = require('../middleware/authMiddleware');
-const { logActivity } = require('../utils/logger');
+const { logActivity }= require('../utils/logger');
 
-// GET all centres (protected)
+// ─── GET all centres (protected) ─────────────────────────────────────────────
+
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const centres = await Centre.find().sort({ createdAt: -1 });
+    const centres = await Centre.findAll('created_at', 'DESC');
     res.json(centres);
   } catch (err) {
     console.error(err.message);
@@ -15,10 +16,11 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// GET all centres (public - for apply form dropdown)
+// ─── GET all centres (public — for apply form dropdown) ───────────────────────
+
 router.get('/public', async (req, res) => {
   try {
-    const centres = await Centre.find().sort({ name: 1 }).select('name email phone');
+    const centres = await Centre.findAllPublic();
     res.json(centres);
   } catch (err) {
     console.error(err.message);
@@ -26,23 +28,23 @@ router.get('/public', async (req, res) => {
   }
 });
 
-// POST - create a new centre (protected)
+// ─── POST — create a new centre (protected) ───────────────────────────────────
+
 router.post('/', authMiddleware, async (req, res) => {
   const { name, email, phone } = req.body;
   if (!name || !email) {
     return res.status(400).json({ message: 'Centre name and email are required.' });
   }
   try {
-    const exists = await Centre.findOne({ name: name.trim() });
+    const exists = await Centre.findByName(name.trim());
     if (exists) {
       return res.status(400).json({ message: 'A centre with this name already exists.' });
     }
-    const centre = new Centre({
-      name: name.trim(),
+    const centre = await Centre.create({
+      name:  name.trim(),
       email: email.trim(),
       phone: phone ? phone.trim() : ''
     });
-    await centre.save();
     await logActivity(
       'Centre Created',
       `Approved Centre "${centre.name}" was added to the portal`,
@@ -56,35 +58,43 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-// PUT - update a centre (protected)
+// ─── PUT — update a centre (protected) ────────────────────────────────────────
+
 router.put('/:id', authMiddleware, async (req, res) => {
   const { name, email, phone } = req.body;
   try {
     const centre = await Centre.findById(req.params.id);
     if (!centre) return res.status(404).json({ message: 'Centre not found' });
-    if (name) centre.name = name.trim();
-    if (email) centre.email = email.trim();
-    if (phone !== undefined) centre.phone = phone.trim();
-    await centre.save();
+
+    const updates = {};
+    if (name  !== undefined) updates.name  = name.trim();
+    if (email !== undefined) updates.email = email.trim();
+    if (phone !== undefined) updates.phone = phone.trim();
+
+    const updated = await Centre.updateById(centre.id, updates);
+
     await logActivity(
       'Centre Updated',
-      `Approved Centre "${centre.name}" details were updated`,
+      `Approved Centre "${updated.name}" details were updated`,
       'centre',
       'Admin'
     );
-    res.json(centre);
+    res.json(updated);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
   }
 });
 
-// DELETE - remove a centre (protected)
+// ─── DELETE — remove a centre (protected) ────────────────────────────────────
+
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const centre = await Centre.findById(req.params.id);
     if (!centre) return res.status(404).json({ message: 'Centre not found' });
-    await centre.deleteOne();
+
+    await Centre.deleteById(centre.id);
+
     await logActivity(
       'Centre Deleted',
       `Approved Centre "${centre.name}" was removed`,
